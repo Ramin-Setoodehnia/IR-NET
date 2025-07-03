@@ -31,5 +31,8 @@ bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
 این نسخه مخصوص ابونتو 22 به بالا می باشد و در تلاش هستیم تا امکانات بیشتری به آن اضافه کنیم.
 
 
+![Untitled](https://github.com/user-attachments/assets/0d893226-446c-451f-bf51-9b31e8f9af66)
+
+
 
 این توضیحات در حال بروزرسانی می باشد . . . .
