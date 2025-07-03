@@ -77,8 +77,9 @@ bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
 ## 🤝 مشارکت و نویسندگان
 هرگونه مشارکت، گزارش مشکل (Issue) و پیشنهاد برای قابلیت‌های جدید مورد استقبال قرار می‌گیرد. می‌توانید مشکلات و پیشنهادات خود را در بخش [Issues](https://github.com/cy33r/IR-NET/issues) این ریپازیتوری ثبت کنید.
 
-* **Creator:** AMIR ALI KARBALAEE ([T.ME/CY3ER](https://t.me/CY3ER))
-* **Collaborator:** FREAK ([T.ME/FREAK_4L](https://t.me/FREAK_4L))
+* **CREATOR:** AMIR ALI KARBALAEE ([T.ME/CY3ER](https://t.me/CY3ER))
+* **COLLABORATOR:** FREAK ([T.ME/FREAK_4L](https://t.me/FREAK_4L))
+* **COLLABORATOR:** IRCFSPACE ([T.ME/IRCFSPACE](https://t.me/IRCFSPACE))
 
 ---
 
