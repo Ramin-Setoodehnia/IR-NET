@@ -779,6 +779,49 @@ manage_xui_offline_install() {
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
+scan_arvan_ranges() {
+    clear
+    if ! command -v nmap &> /dev/null; then
+        echo -e "${C_YELLOW}ابزار nmap برای این کار لازم است. در حال نصب...${C_RESET}"
+        apt-get update
+        apt-get install -y nmap
+        echo -e "${C_GREEN}nmap با موفقیت نصب شد.${C_RESET}"
+        sleep 2
+        clear
+    fi
+
+    echo -e "${B_CYAN}--- اسکن رنج IP آروان کلود ---${C_RESET}\n"
+    local RANGES=(
+        "185.143.232.0/22" "188.229.116.16/29" "94.101.182.0/27" "2.144.3.128/28"
+        "89.45.48.64/28" "37.32.16.0/27" "37.32.17.0/27" "37.32.18.0/27"
+        "37.32.19.0/27" "185.215.232.0/22"
+    )
+
+    for range in "${RANGES[@]}"; do
+        echo
+        read -p "$(echo -e "${B_YELLOW}--> برای اسکن رنج [${C_CYAN}${range}${B_YELLOW}] کلید Enter را بزنید (s=رد کردن, q=خروج): ${C_RESET}")" choice
+        case "$choice" in
+            s|S) continue;;
+            q|Q) break;;
+        esac
+
+        echo -e "${C_WHITE}در حال اسکن ${range}...${C_RESET}"
+        mapfile -t ip_list < <(nmap -sL -n "$range" | awk '/Nmap scan report for/{print $NF}')
+        
+        for ip in "${ip_list[@]}"; do
+            echo -ne "    ${C_YELLOW}تست IP: ${ip}   \r${C_RESET}"
+            
+            if ping -c 1 -W 1 "$ip" &> /dev/null; then
+                echo -e "    ${C_GREEN}✅ IP فعال: ${ip}${C_RESET}                "
+            fi
+        done
+        echo -e "اسکن رنج ${range} تمام شد."
+    done
+
+    echo -e "\n${B_GREEN}عملیات اسکن به پایان رسید.${C_RESET}"
+    read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+}
+
 
 # --- NEW MAIN MENUS ---
 
@@ -820,7 +863,8 @@ manage_security() {
         echo -e "${C_YELLOW}4) ${C_WHITE}فعال/غیرفعال کردن IPV6"
         echo -e "${C_YELLOW}5) ${C_WHITE}مدیریت ریبوت خودکار"
         echo -e "${C_YELLOW}6) ${C_WHITE}اسکنر پورت"
-        echo -e "${C_YELLOW}7) ${C_WHITE}بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}7) ${C_WHITE}اسکن رنج آروان کلود"
+        echo -e "${C_YELLOW}8) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
@@ -830,7 +874,8 @@ manage_security() {
             4) manage_ipv6 ;;
             5) manage_reboot_cron ;;
             6) port_scanner_menu ;;
-            7) return ;;
+            7) scan_arvan_ranges ;;
+            8) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
