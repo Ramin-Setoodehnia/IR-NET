@@ -879,6 +879,47 @@ scan_arvan_ranges() {
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
+manage_ip_health_check() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- تشخیص سالم بودن آی پی ---${C_RESET}\n"
+        echo -e "${C_YELLOW}1)${C_WHITE} تست اول (ip.check.place)"
+        echo -e "${C_YELLOW}2)${C_WHITE} تست دوم (bench.openode.xyz)"
+        echo -e "${C_YELLOW}3)${C_WHITE} تست سوم (git.io/JRw8R)"
+        echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی امنیت"
+        echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+        read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+        case $choice in
+            1)
+                clear
+                echo -e "${C_YELLOW}در حال اجرای تست اول...${C_RESET}"
+                bash <(curl -Ls IP.Check.Place) -l en -4
+                break
+                ;;
+            2)
+                clear
+                echo -e "${C_YELLOW}در حال اجرای تست دوم...${C_RESET}"
+                bash <(curl -L -s https://bench.openode.xyz/multi_check.sh)
+                break
+                ;;
+            3)
+                clear
+                echo -e "${C_YELLOW}در حال اجرای تست سوم...${C_RESET}"
+                bash <(curl -L -s https://git.io/JRw8R) -E en -M 4
+                break
+                ;;
+            4)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"
+                sleep 1
+                ;;
+        esac
+    done
+    read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+}
+
 
 # --- NEW MAIN MENUS ---
 
@@ -921,7 +962,8 @@ manage_security() {
         echo -e "${C_YELLOW}5) ${C_WHITE}مدیریت ریبوت خودکار"
         echo -e "${C_YELLOW}6) ${C_WHITE}اسکنر پورت"
         echo -e "${C_YELLOW}7) ${C_WHITE}اسکن رنج آروان کلود"
-        echo -e "${C_YELLOW}8) ${C_WHITE}بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}8) ${C_WHITE}تشخیص سالم بودن آی پی"
+        echo -e "${C_YELLOW}9) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
@@ -932,7 +974,8 @@ manage_security() {
             5) manage_reboot_cron ;;
             6) port_scanner_menu ;;
             7) scan_arvan_ranges ;;
-            8) return ;;
+            8) manage_ip_health_check ;;
+            9) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
