@@ -1,5 +1,11 @@
 <div dir="rtl">
- 
+
+<p align="center">
+    <img src="https://img.shields.io/badge/Version-1.0-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/Platform-Ubuntu_22.04+-orange.svg" alt="Platform">
+    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
+    <img src="https://img.shields.io/github/stars/cy33r/IR-NET?style=social" alt="GitHub Stars">
+
 <p align="center">
   <img src="https://github.com/user-attachments/assets/3d059f11-bddb-4411-822e-ed8db6398e62" alt="IR-NET-Logo"/>
 </p>
@@ -23,7 +29,13 @@
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
 ```
-> **روش جایگزین (آفلاین):** می‌توانید فایل `menu.sh` را دانلود کرده، در پوشه `/root` سرور آپلود نمایید و با دستور `sudo bash menu.sh` آن را اجرا کنید. (توصیه می‌شود قبل از اجرا، با دستور `sed -i 's/\r$//' menu.sh` فرمت فایل را برای لینوکس بهینه کنید).
+> **روش جایگزین (آفلاین):** > فایل `menu.sh` را دانلود کرده، در پوشه `/root` سرور آپلود نمایید.
+> 
+> **اجرا:**
+> ```bash
+> sed -i 's/\r$//' menu.sh
+> sudo bash menu.sh
+> ```
 
 **سیستم‌عامل مورد نیاز:** این اسکریپت به طور اختصاصی برای توزیع **UBUNTU 22.04 و بالاتر** طراحی شده است.
 
