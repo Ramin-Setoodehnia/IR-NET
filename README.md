@@ -29,6 +29,9 @@
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
 ```
+```bash
+bash <(curl -sSL https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh)
+```
 > **روش جایگزین (آفلاین):** > فایل `menu.sh` را دانلود کرده، در پوشه `/root` سرور آپلود نمایید.
 > 
 > **اجرا:**
