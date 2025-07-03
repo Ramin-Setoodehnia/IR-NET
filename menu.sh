@@ -34,7 +34,7 @@ show_banner() {
     echo ""
 }
 
-# --- CORRECTED Backup Function ---
+# --- HELPER FUNCTIONS ---
 backup_file() {
   local file=$1
   if [ -f "$file" ] && [ ! -f "${file}.bak" ]; then
@@ -42,6 +42,33 @@ backup_file() {
     echo -e "${C_GREEN}یک نسخه پشتیبان از $file در ${file}.bak برای بازیابی‌های بعدی ایجاد شد.${C_RESET}"
   fi
 }
+
+check_service_status() {
+    local service_name=$1
+    if systemctl is-active --quiet "$service_name"; then
+        echo -e "\n${C_GREEN}سرویس $service_name با موفقیت اجرا شد.${C_RESET}"
+    else
+        echo -e "\n${C_RED}خطا: سرویس $service_name با موفقیت اجرا نشد. لطفاً وضعیت را دستی بررسی کنید: systemctl status $service_name${C_RESET}"
+    fi
+}
+
+is_valid_ip() {
+    local ip=$1
+    local regex="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
+    if [[ $ip =~ $regex ]]; then
+        local IFS='.'
+        read -ra ip_parts <<< "$ip"
+        for part in "${ip_parts[@]}"; do
+            if ((part > 255)); then
+                return 1 # Invalid
+            fi
+        done
+        return 0 # Valid
+    else
+        return 1 # Invalid
+    fi
+}
+
 
 # --- INDIVIDUAL TOOL FUNCTIONS ---
 
@@ -65,6 +92,7 @@ manage_dns() {
         echo -e "DNS اصلی: ${C_GREEN}$dns1${C_RESET}"
         echo -e "DNS کمکی: ${C_GREEN}$dns2${C_RESET}"
         backup_file $resolved_conf
+        touch $resolved_conf
         sed -i -E 's/^#?DNS=.*//' $resolved_conf
         sed -i -E 's/^#?FallbackDNS=.*//' $resolved_conf
         sed -i -E 's/^#?\[Resolve\]/\[Resolve\]/' $resolved_conf
@@ -83,7 +111,7 @@ manage_dns() {
             fi
         fi
         systemctl restart systemd-resolved
-        echo -e "\n${C_GREEN}✅ DNS دائمی با موفقیت تنظیم و سرویس systemd-resolved ری‌استارت شد.${C_RESET}"
+        check_service_status "systemd-resolved"
     }
     find_and_set_best_dns() {
         local -n dns_list=$1 
@@ -146,16 +174,21 @@ manage_ipv6() {
     read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
     case $choice in
         1)
-            backup_file $sysctl_conf
-            touch $sysctl_conf
-            sed -i '/net.ipv6.conf.all.disable_ipv6/d' $sysctl_conf
-            sed -i '/net.ipv6.conf.default.disable_ipv6/d' $sysctl_conf
-            sed -i '/net.ipv6.conf.lo.disable_ipv6/d' $sysctl_conf
-            echo "net.ipv6.conf.all.disable_ipv6 = 1" >> $sysctl_conf
-            echo "net.ipv6.conf.default.disable_ipv6 = 1" >> $sysctl_conf
-            echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> $sysctl_conf
-            sysctl -p
-            echo -e "\n${C_GREEN}IPV6 با موفقیت غیرفعال شد.${C_RESET}"
+            read -p "$(echo -e "${C_YELLOW}**هشدار:** این کار ممکن است اتصال شما را دچار اختلال کند. آیا مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
+            if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+                echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
+            else
+                backup_file $sysctl_conf
+                touch $sysctl_conf
+                sed -i '/net.ipv6.conf.all.disable_ipv6/d' $sysctl_conf
+                sed -i '/net.ipv6.conf.default.disable_ipv6/d' $sysctl_conf
+                sed -i '/net.ipv6.conf.lo.disable_ipv6/d' $sysctl_conf
+                echo "net.ipv6.conf.all.disable_ipv6 = 1" >> $sysctl_conf
+                echo "net.ipv6.conf.default.disable_ipv6 = 1" >> $sysctl_conf
+                echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> $sysctl_conf
+                sysctl -p
+                echo -e "\n${C_GREEN}IPV6 با موفقیت غیرفعال شد.${C_RESET}"
+            fi
             ;;
         2)
             backup_file $sysctl_conf
@@ -180,23 +213,28 @@ manage_ssh_root() {
   clear
   local sshd_config="/etc/ssh/sshd_config"
   echo -e "${B_CYAN}--- مدیریت ورود کاربر روت ---${C_RESET}\n"
-  echo -e "${C_YELLOW}1)${C_WHITE} فعال کردن ورود روت با رمز عبور (PermitRootLogin yes)"
-  echo -e "${C_YELLOW}2)${C_WHITE} غیرفعال کردن ورود روت با رمز عبور (PermitRootLogin prohibit-password)"
+  echo -e "${C_YELLOW}1)${C_WHITE} فعال کردن ورود روت با رمز عبور"
+  echo -e "${C_YELLOW}2)${C_WHITE} غیرفعال کردن ورود روت با رمز عبور"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
   read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
   case $choice in
     1)
-      echo -e "\nابتدا باید برای کاربر root یک رمز عبور تنظیم کنید."
-      passwd root
-      backup_file $sshd_config
-      if grep -q "^#*PermitRootLogin" "$sshd_config"; then
-        sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' "$sshd_config"
+      read -p "$(echo -e "${C_YELLOW}**هشدار:** فعال کردن ورود روت ریسک امنیتی دارد. آیا مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
+      if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+          echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
       else
-        echo "PermitRootLogin yes" >> "$sshd_config"
+          echo -e "\nابتدا باید برای کاربر root یک رمز عبور تنظیم کنید."
+          passwd root
+          backup_file $sshd_config
+          if grep -q "^#*PermitRootLogin" "$sshd_config"; then
+            sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' "$sshd_config"
+          else
+            echo "PermitRootLogin yes" >> "$sshd_config"
+          fi
+          systemctl restart sshd
+          check_service_status "sshd"
       fi
-      systemctl restart sshd
-      echo -e "\n${C_GREEN}ورود کاربر root با رمز عبور فعال شد.${C_RESET}"
       ;;
     2)
       backup_file $sshd_config
@@ -206,7 +244,7 @@ manage_ssh_root() {
         echo "PermitRootLogin prohibit-password" >> "$sshd_config"
       fi
       systemctl restart sshd
-      echo -e "\n${C_GREEN}ورود کاربر root به حالت پیش‌فرض (prohibit-password) بازگردانده شد.${C_RESET}"
+      check_service_status "sshd"
       ;;
     3) return ;;
     *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
@@ -590,20 +628,24 @@ port_scanner_menu() {
             echo -e "\n${C_GREEN}ابزارها با موفقیت نصب شدند.${C_RESET}"
             ;;
         2)
-            if ! command -v nmap &> /dev/null; then
+            read -p "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
+            if ! is_valid_ip "$target_ip"; then
+                echo -e "\n${C_RED}خطا: آدرس IP وارد شده معتبر نیست.${C_RESET}"
+            elif ! command -v nmap &> /dev/null; then
                 echo -e "\n${C_RED}خطا: nmap نصب نیست. لطفاً ابتدا از گزینه ۱ آن را نصب کنید.${C_RESET}"
             else
-                read -p "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
                 echo -e "\n${C_YELLOW}در حال اسکن سریع پورت‌های باز روی $target_ip با nmap...${C_RESET}"
                 nmap -p- --open "$target_ip"
                 echo -e "\n${C_GREEN}اسکن با nmap به پایان رسید.${C_RESET}"
             fi
             ;;
         3)
-            if ! command -v hping3 &> /dev/null; then
+            read -p "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
+            if ! is_valid_ip "$target_ip"; then
+                echo -e "\n${C_RED}خطا: آدرس IP وارد شده معتبر نیست.${C_RESET}"
+            elif ! command -v hping3 &> /dev/null; then
                 echo -e "\n${C_RED}خطا: hping3 نصب نیست. لطفاً ابتدا از گزینه ۱ آن را نصب کنید.${C_RESET}"
             else
-                read -p "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
                 echo -e "\n${B_YELLOW}**هشدار:** این نوع اسکن بسیار زمان‌بر است و ممکن است ساعت‌ها طول بکشد.${C_RESET}"
                 read -p "$(echo -e "${B_MAGENTA}آیا برای شروع اسکن با hping3 مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
                 if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
@@ -654,12 +696,13 @@ manage_firewall() {
         echo -e "${B_CYAN}--- مدیریت فایروال (UFW) ---${C_RESET}\n"
         ufw status | head -n 1
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        echo -e "${C_YELLOW}1)${C_WHITE} نمایش وضعیت و پورت‌های باز"
+        echo -e "${C_YELLOW}1)${C_WHITE} نمایش وضعیت و قوانین"
         echo -e "${C_YELLOW}2)${C_WHITE} اضافه کردن پورت (TCP/UDP)"
-        echo -e "${C_YELLOW}3)${C_WHITE} آزاد کردن خودکار پورت‌های فعال"
-        echo -e "${C_YELLOW}4)${C_GREEN} فعال کردن فایروال"
-        echo -e "${C_YELLOW}5)${C_RED} غیرفعال کردن فایروال"
-        echo -e "${C_YELLOW}6)${C_WHITE} بازگشت به منوی امنیت"
+        echo -e "${C_YELLOW}3)${C_WHITE} حذف یک قانون"
+        echo -e "${C_YELLOW}4)${C_WHITE} آزاد کردن خودکار پورت‌های فعال"
+        echo -e "${C_YELLOW}5)${C_GREEN} فعال کردن فایروال"
+        echo -e "${C_YELLOW}6)${C_RED} غیرفعال کردن فایروال"
+        echo -e "${C_YELLOW}7)${C_WHITE} بازگشت به منوی امنیت"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
@@ -680,6 +723,20 @@ manage_firewall() {
                 sleep 2
                 ;;
             3)
+                clear
+                echo -e "${B_CYAN}--- حذف قانون فایروال ---${C_RESET}"
+                ufw status numbered
+                echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+                read -p "$(echo -e "${B_MAGENTA}شماره قانونی که می‌خواهید حذف شود را وارد کنید: ${C_RESET}")" rule_num
+                if ! [[ "$rule_num" =~ ^[0-9]+$ ]]; then
+                    echo -e "\n${C_RED}خطا: ورودی باید یک عدد باشد.${C_RESET}"
+                else
+                    yes | ufw delete "$rule_num"
+                    echo -e "\n${C_GREEN}قانون شماره $rule_num (در صورت وجود) حذف شد.${C_RESET}"
+                fi
+                sleep 2
+                ;;
+            4)
                 echo -e "\n${C_YELLOW}در حال یافتن و آزاد کردن پورت‌های فعال (LISTEN)...${C_RESET}"
                 mapfile -t ports < <(ss -lntu | grep 'LISTEN' | awk '{print $5}' | rev | cut -d: -f1 | rev | sort -un)
                 if [ "${#ports[@]}" -eq 0 ]; then
@@ -693,15 +750,15 @@ manage_firewall() {
                 fi
                 sleep 2
                 ;;
-            4)
+            5)
                 echo -e "\n${C_YELLOW}در حال فعال کردن فایروال...${C_RESET}"
                 yes | ufw enable
                 ;;
-            5)
+            6)
                 echo -e "\n${C_YELLOW}در حال غیرفعال کردن فایروال...${C_RESET}"
                 ufw disable
                 ;;
-            6)
+            7)
                 return
                 ;;
             *)
