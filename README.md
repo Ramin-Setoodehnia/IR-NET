@@ -21,7 +21,7 @@
 برای اجرای این مجموعه ابزار، کافیست دستور زیر را در ترمینال سرور خود کپی و اجرا کنید:
 
 ```bash
-bash <(curl -sSL [https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh](https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh))
+bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
 ```
 > **روش جایگزین (آفلاین):** می‌توانید فایل `menu.sh` را دانلود کرده، در پوشه `/root` سرور آپلود نمایید و با دستور `sudo bash menu.sh` آن را اجرا کنید. (توصیه می‌شود قبل از اجرا، با دستور `sed -i 's/\r$//' menu.sh` فرمت فایل را برای لینوکس بهینه کنید).
 
