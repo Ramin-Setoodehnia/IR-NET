@@ -33,6 +33,7 @@ bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
 > 
 > **اجرا:**
 > ```bash
+> chmod +x menu.sh
 > sed -i 's/\r$//' menu.sh
 > sudo bash menu.sh
 > ```
