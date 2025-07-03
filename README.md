@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/0363f4c7-1fa6-42ab-ba2e-032e457e5d2f" alt="IR-NET Main Menu Screenshot" width="800"/>
+  <img src="https://github.com/user-attachments/assets/5b05b0f8-4cf5-46c0-9eb6-2ff8af4bd978" alt="IR-NET Main Menu Screenshot" width="800"/>
 </p>
 
 ---
