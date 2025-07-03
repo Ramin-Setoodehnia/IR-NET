@@ -13,7 +13,9 @@
 
 
 chmod +x menu.sh
+
 sed -i 's/\r$//' menu.sh
+
 sudo bash menu.sh
 
 
