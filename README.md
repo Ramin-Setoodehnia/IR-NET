@@ -23,8 +23,8 @@ sudo bash menu.sh
 
 
 
-https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh
 
+bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
 
 
 
