@@ -54,15 +54,8 @@ check_service_status() {
 
 is_valid_ip() {
     local ip=$1
-    local regex="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
-    if [[ $ip =~ $regex ]]; then
-        local IFS='.'
-        read -ra ip_parts <<< "$ip"
-        for part in "${ip_parts[@]}"; do
-            if ((part > 255)); then
-                return 1 # Invalid
-            fi
-        done
+    # This regex handles both IPv4 and IPv6 (basic validation)
+    if [[ "$ip" =~ ^([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$ || "$ip" =~ ^(([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])) || "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
         return 0 # Valid
     else
         return 1 # Invalid
@@ -879,6 +872,61 @@ scan_arvan_ranges() {
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
+scan_warp_endpoints() {
+    clear
+    if ! command -v nc &> /dev/null; then
+        echo -e "${C_YELLOW}ابزار netcat (nc) برای این کار لازم است. در حال نصب...${C_RESET}"
+        apt-get update
+        apt-get install -y netcat-openbsd
+        echo -e "${C_GREEN}netcat با موفقیت نصب شد.${C_RESET}"
+        sleep 2
+        clear
+    fi
+
+    echo -e "${B_CYAN}--- اسکن اندپوینت های وارپ ---${C_RESET}\n"
+    local ENDPOINTS=(
+        "162.159.192.19:1701" "188.114.98.61:955" "188.114.96.137:988" "188.114.99.66:4198"
+        "188.114.99.212:1074" "188.114.98.224:4500" "188.114.98.224:878" "188.114.98.224:1387"
+        "188.114.98.224:3476" "188.114.98.224:500" "188.114.98.224:2371" "188.114.98.224:1070"
+        "188.114.98.224:854" "188.114.98.224:864" "188.114.98.224:939" "188.114.98.224:2408"
+        "188.114.98.224:908" "162.159.192.121:2371" "188.114.96.145:1074" "188.114.98.0:878"
+        "188.114.98.228:878" "188.114.99.0:878" "162.159.195.238:7156"
+        "188.114.98.224:894" "188.114.96.191:3854" "[2606:4700:d1::58a8:0f84:d37f:90e7]:7559"
+        "[2606:4700:d1::1665:bab6:7ff1:a710]:878" "[2606:4700:d0::6932:d526:67b7:77ce]:890"
+        "[2606:4700:d1::9eae:b:2754:6ad9]:1018"
+    )
+
+    for endpoint in "${ENDPOINTS[@]}"; do
+        # Correctly parse both IPv4 and IPv6 endpoints
+        if [[ $endpoint == \[* ]]; then
+            # IPv6
+            ip_host=$(echo "$endpoint" | cut -d']' -f1 | tr -d '[')
+            port=$(echo "$endpoint" | cut -d']' -f2 | tr -d ':')
+        else
+            # IPv4
+            ip_host=$(echo "$endpoint" | cut -d: -f1)
+            port=$(echo "$endpoint" | cut -d: -f2)
+        fi
+        
+        echo -ne "    ${C_YELLOW}تست اندپوینت: ${ip_host}:${port}   \r${C_RESET}"
+
+        # 1. Check UDP port first
+        if nc -u -z -w 1 "$ip_host" "$port" &> /dev/null; then
+            # 2. If port is open, then get the ICMP ping time
+            local ping_avg=$(ping -c 1 -W 1 "$ip_host" | tail -1 | awk -F '/' '{print $5}' 2>/dev/null)
+            
+            if [ -n "$ping_avg" ]; then
+                echo -e "    ${C_GREEN}✅ اندپوینت فعال: ${ip_host}:${port} | پینگ: ${ping_avg} ms${C_RESET}          "
+            else
+                echo -e "    ${C_GREEN}✅ اندپوینت فعال: ${ip_host}:${port} | پینگ: (N/A)${C_RESET}          "
+            fi
+        fi
+    done
+
+    echo -e "\n${B_GREEN}عملیات اسکن به پایان رسید.${C_RESET}"
+    read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+}
+
 manage_ip_health_check() {
     while true; do
         clear
@@ -963,7 +1011,8 @@ manage_security() {
         echo -e "${C_YELLOW}6) ${C_WHITE}اسکنر پورت"
         echo -e "${C_YELLOW}7) ${C_WHITE}اسکن رنج آروان کلود"
         echo -e "${C_YELLOW}8) ${C_WHITE}تشخیص سالم بودن آی پی"
-        echo -e "${C_YELLOW}9) ${C_WHITE}بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}9) ${C_WHITE}اسکن اندپوینت های وارپ"
+        echo -e "${C_YELLOW}10) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
@@ -975,7 +1024,8 @@ manage_security() {
             6) port_scanner_menu ;;
             7) scan_arvan_ranges ;;
             8) manage_ip_health_check ;;
-            9) return ;;
+            9) scan_warp_endpoints ;;
+            10) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
