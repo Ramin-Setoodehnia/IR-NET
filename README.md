@@ -1,7 +1,7 @@
 <div dir="rtl">
-
+  
 <p align="center">
-  <img src="[لینک-لوگو-شما-یعنی-تصویر-222.png](https://raw.githubusercontent.com/cy33r/IR-NET/d3feb1d1e2dc71e9e9801e8474127623da73cec5/photo_2025-07-03_09-49-45%20(2).jpg)" alt="IR-NET-Logo"/>
+  <img src="https://github.com/user-attachments/assets/3d059f11-bddb-4411-822e-ed8db6398e62" alt="IR-NET-Logo"/>
 </p>
 
 <h1 align="center">IR-NET - مجموعه ابزار مدیریت سرور اوبونتو</h1>
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="[لینک-اسکرین‌شات-شما-یعنی-تصویر-111.png](https://raw.githubusercontent.com/cy33r/IR-NET/refs/heads/main/photo_2025-07-03_09-49-45.jpg)" alt="IR-NET Main Menu Screenshot" width="800"/>
+  <img src="https://github.com/user-attachments/assets/0363f4c7-1fa6-42ab-ba2e-032e457e5d2f" alt="IR-NET Main Menu Screenshot" width="800"/>
 </p>
 
 ---
