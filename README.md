@@ -73,6 +73,8 @@ bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
 - نصب بسته های آپدیت و کرل
 
 
+
+
 4) نصب آفلاین پنل TX-UI
 
 - نصب پنل از فایل موجود در سرور
