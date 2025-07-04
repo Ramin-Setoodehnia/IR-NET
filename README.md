@@ -27,7 +27,7 @@
 برای اجرای این مجموعه ابزار، کافیست دستور زیر را در ترمینال سرور خود کپی و اجرا کنید:
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh)
+bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh?$(date +%s)")
 ```
 ```bash
 bash <(curl -sSL https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh)
