@@ -34,7 +34,7 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh?$(d
 ```bash
 bash <(curl -sSL https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh)
 ```
-> **روش جایگزین (آفلاین):** > فایل `menu.sh` را دانلود کرده، در پوشه `/root` سرور آپلود نمایید.
+> **روش جایگزین (آفلاین):** > فایل های `.rathole_watchdog.sh`،  `rathole_v2.sh`،  `menu.sh` را دانلود کرده، در پوشه `/root` سرور آپلود نمایید.
 > 
 > **اجرا:**
 > ```bash
