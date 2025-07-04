@@ -16,8 +16,10 @@
 یک اسکریپت قدرتمند و ماژولار با رابط کاربری متنی (TUI) برای مدیریت، بهینه‌سازی و امن‌سازی سرورهای لینوکس اوبونتو که با تمرکز بر نیازهای کاربران ایرانی طراحی شده است.
 </p>
 
+
+
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/5b05b0f8-4cf5-46c0-9eb6-2ff8af4bd978" alt="IR-NET Main Menu Screenshot" width="800"/>
+  <img src="https://github.com/user-attachments/assets/e8e90db3-cbb5-44bd-a3d3-b63bac85044f" alt="IR-NET Main Menu Screenshot" width="800"/>
 </p>
 
 ---
@@ -81,7 +83,21 @@ bash <(curl -sSL https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh)
 * بهینه سازی برای ایران
 
 ---
+## 🏞  تصاویری از محیط اسکریپت
 
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/0938de54-154e-4b61-9452-b759f02f7d5e" alt="IR-NET-Logo"/>
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/bb6c4406-28ab-461d-93f5-d4789ccafcb4" alt="IR-NET-Logo"/>
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/6cb7f68f-fe97-4e88-8813-43a81dc8f242" alt="IR-NET-Logo"/>
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ca9df664-4441-4bc4-8f3e-aa2a6d07e82b" alt="IR-NET-Logo"/>
+</p>
+
+
+---
 ## 🤝 مشارکت و نویسندگان
 هرگونه مشارکت، گزارش مشکل (Issue) و پیشنهاد برای قابلیت‌های جدید مورد استقبال قرار می‌گیرد. می‌توانید مشکلات و پیشنهادات خود را در بخش [Issues](https://github.com/cy33r/IR-NET/issues) این ریپازیتوری ثبت کنید.
 
