@@ -1950,7 +1950,8 @@ manage_rat_hole_tunnel() {
         echo -e "${B_CYAN}--- تانل رت هول بهینه ایران ---${C_RESET}\n"
         echo -e "${C_YELLOW}1)${C_WHITE} نصب تونل رت هول"
         echo -e "${C_YELLOW}2)${C_WHITE} بهینه سازی برای ایران"
-        echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}3)${C_WHITE} راهنما"
+        echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" tunnel_choice
 
@@ -1961,7 +1962,7 @@ manage_rat_hole_tunnel() {
                     echo -e "\n${C_GREEN}در حال اجرای اسکریپت نصب تونل رت هول...${C_RESET}"
                     bash "$rathole_script"
                 else
-                    echo -e "\n${C_RED}خطا: اسکریپت ${rathole_script} یافت نشد!${C_RESET}"
+                    echo -e "\n${C_RED}خطا: اسکریپت ${rathole_script} یافت نشد! لطفاً از منوی راهنما استفاده کنید.${C_RESET}"
                 fi
                 read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
                 ;;
@@ -1972,11 +1973,23 @@ manage_rat_hole_tunnel() {
                     chmod +x "$watchdog_script"
                     "$watchdog_script"
                 else
-                    echo -e "\n${C_RED}خطا: اسکریپت ${watchdog_script} یافت نشد!${C_RESET}"
+                    echo -e "\n${C_RED}خطا: اسکریپت ${watchdog_script} یافت نشد! لطفاً از منوی راهنما استفاده کنید.${C_RESET}"
                 fi
                 read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
                 ;;
             3)
+                clear
+                echo -e "${B_CYAN}--- راهنما ---${C_RESET}\n"
+                echo -e "${C_WHITE}دو فایل زیر را از صفحه گیت هاب ما دانلود کرده و در پوشه روت سرور خود آپلود نمایید:"
+                echo -e "  - ${C_GREEN}rathole_v2.sh${C_RESET}"
+                echo -e "  - ${C_GREEN}rathole_watchdog.sh${C_RESET}"
+                echo ""
+                echo -e "${C_YELLOW}سپس مجدد اقدام به نصب تونل (گزینه 1) و بهینه ساز (گزینه 2) نمایید.${C_RESET}"
+                echo -e "${C_YELLOW}دقت داشته باشید که تا تونل را کامل راه اندازی نکنید، بهینه ساز با خطا مواجه خواهد شد.${C_RESET}"
+                echo -e "\n${C_WHITE}باتشکر${C_RESET}"
+                read -n 1 -s -r -p $'\nبرای بازگشت به منو، کلیدی را فشار دهید...'
+                ;;
+            4)
                 return
                 ;;
             *)
