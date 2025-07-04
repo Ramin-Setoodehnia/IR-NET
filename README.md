@@ -92,20 +92,21 @@ bash <(curl -sSL [https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh](https://cdn.
 * نصب تونل رت هول
 * بهینه سازی برای ایران
 
----
-## 🏞  تصاویری از محیط اسکریپت
+## 🏞️ تصاویری از محیط اسکریپت
 
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/0938de54-154e-4b61-9452-b759f02f7d5e" alt="IR-NET-Logo"/>
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/bb6c4406-28ab-461d-93f5-d4789ccafcb4" alt="IR-NET-Logo"/>
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/6cb7f68f-fe97-4e88-8813-43a81dc8f242" alt="IR-NET-Logo"/>
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/ca9df664-4441-4bc4-8f3e-aa2a6d07e82b" alt="IR-NET-Logo"/>
-</p>
-
+<details>
+  <summary><b>🖼️ برای مشاهده تصاویر، اینجا کلیک کنید</b></summary>
+  <br>
+  <p align="center">
+    <img src="https://github.com/user-attachments/assets/0938de54-154e-4b61-9452-b759f02f7d5e" alt="IR-NET-Logo" width="70%"/>
+    <br><br>
+    <img src="https://github.com/user-attachments/assets/bb6c4406-28ab-461d-93f5-d4789ccafcb4" alt="IR-NET-Logo" width="70%"/>
+    <br><br>
+    <img src="https://github.com/user-attachments/assets/6cb7f68f-fe97-4e88-8813-43a81dc8f242" alt="IR-NET-Logo" width="70%"/>
+    <br><br>
+    <img src="https://github.com/user-attachments/assets/ca9df664-4441-4bc4-8f3e-aa2a6d07e82b" alt="IR-NET-Logo" width="70%"/>
+  </p>
+</details>
 
 ---
 ## 🤝 مشارکت و نویسندگان
