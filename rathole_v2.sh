@@ -196,9 +196,9 @@ ____________ _/  |_|  |__   ____ |  |   ____
             \/          \/                 \/ 	
 EOF
     echo -e "${NC}${GREEN}"
-    echo -e "Version: ${YELLOW}v2.0${GREEN}"
-    echo -e "Github: ${YELLOW}github.com/Musixal/Rathole-Tunnel${GREEN}"
-    echo -e "Telegram Channel: ${YELLOW}@Gozar_Xray${NC}"
+    echo -e "VERSION: ${YELLOW}V2.0${GREEN}"
+    echo -e "GITHUB: ${YELLOW}${GREEN}"
+    echo -e "TELEGRAM CHANNEL: ${YELLOW}${NC}"
 }
 
 # Function to display server location and IP
@@ -206,16 +206,16 @@ display_server_info() {
     echo -e "\e[93m═════════════════════════════════════════════\e[0m"  
  	#	Hidden for security issues   
     #echo -e "${CYAN}IP Address:${NC} $SERVER_IP"
-    echo -e "${CYAN}Location:${NC} $SERVER_COUNTRY "
-    echo -e "${CYAN}Datacenter:${NC} $SERVER_ISP"
+    echo -e "${CYAN}LOCATION:${NC} $SERVER_COUNTRY "
+    echo -e "${CYAN}DATACENTER:${NC} $SERVER_ISP"
 }
 
 # Function to display Rathole Core installation status
 display_rathole_core_status() {
     if [[ -f "${config_dir}/rathole" ]]; then
-        echo -e "${CYAN}Rathole Core:${NC} ${GREEN}Installed${NC}"
+        echo -e "${CYAN}RATHOLE CORE:${NC} ${GREEN}Installed${NC}"
     else
-        echo -e "${CYAN}Rathole Core:${NC} ${RED}Not installed${NC}"
+        echo -e "${CYAN}RATHOLE CORE:${NC} ${RED}Not installed${NC}"
     fi
     echo -e "\e[93m═════════════════════════════════════════════\e[0m"  
 }
@@ -1629,15 +1629,15 @@ display_menu() {
     display_server_info
     display_rathole_core_status
     echo
-    colorize green " 1. Configure a new tunnel [IPv4/IPv6]" bold
-    colorize red " 2. Tunnel management menu" bold
-    colorize cyan " 3. Check tunnels status" bold
- 	echo -e " 4. Optimize network & system limits"
- 	echo -e " 5. Install rathole core"
- 	echo -e " 6. Update & install script"
- 	echo -e " 7. Change core [experimental]"
- 	echo -e " 8. Remove rathole core"
-    echo -e " 0. Exit"
+    colorize green " 1. CONFIGURE A NEW TUNNEL [IPV4/IPV6]" bold
+    colorize red " 2. TUNNEL MANAGEMENT MENU" bold
+    colorize cyan " 3. CHECK TUNNELS STATUS" bold
+ 	echo -e " 4. OPTIMIZE NETWORK & SYSTEM LIMITS"
+ 	echo -e " 5. INSTALL RATHOLE CORE"
+ 	echo -e " 6. UPDATE & INSTALL SCRIPT"
+ 	echo -e " 7. CHANGE CORE [EXPERIMENTAL]"
+ 	echo -e " 8. REMOVE RATHOLE CORE"
+    echo -e " 0. EXIT"
     echo
     echo "-------------------------------"
 }
