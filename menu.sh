@@ -7,7 +7,7 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-# --- New Color Palette ---
+# --- Color Palette (From menu.sh) ---
 C_RESET='\033[0m'
 C_RED='\033[0;31m'
 C_GREEN='\033[0;32m'
@@ -22,6 +22,14 @@ B_MAGENTA='\033[1;35m'
 B_CYAN='\033[1;36m'
 B_YELLOW='\033[1;33m'
 
+# --- Color Palette (From AS-BBR.sh) ---
+readonly AS_RED=$'\033[0;31m'
+readonly AS_GREEN=$'\033[0;32m'
+readonly AS_YELLOW=$'\033[1;33m'
+readonly AS_BLUE=$'\033[0;34m'
+readonly AS_CYAN=$'\033[0;36m'
+readonly AS_NC=$'\033[0m' # No Color
+
 
 # --- Header and Banner ---
 show_banner() {
@@ -35,7 +43,7 @@ show_banner() {
     echo ""
 }
 
-# --- HELPER FUNCTIONS ---
+# --- HELPER FUNCTIONS (From menu.sh) ---
 backup_file() {
   local file=$1
   if [ -f "$file" ] && [ ! -f "${file}.bak" ]; then
@@ -55,16 +63,941 @@ check_service_status() {
 
 is_valid_ip() {
     local ip=$1
-    # This regex handles both IPv4 and IPv6 (basic validation)
     if [[ "$ip" =~ ^([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$ || "$ip" =~ ^(([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])) || "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-        return 0 # Valid
+        return 0
     else
-        return 1 # Invalid
+        return 1
     fi
 }
 
 
-# --- INDIVIDUAL TOOL FUNCTIONS ---
+# #############################################################################
+# --- START OF MERGED SCRIPT: AS-BBR.sh ---
+# #############################################################################
+
+readonly LOG_FILE="/var/log/network_optimizer.log"
+readonly BACKUP_DIR="/var/backups/network_optimizer"
+readonly TARGET_DNS=("9.9.9.9" "149.112.112.112")
+readonly MIN_MTU=576
+readonly MAX_MTU=9000
+
+declare -g SYSTEM_CPU_CORES
+declare -g SYSTEM_TOTAL_RAM
+declare -g SYSTEM_OPTIMAL_BACKLOG
+declare -g SYSTEM_OPTIMAL_MEM
+declare -g PRIMARY_INTERFACE
+
+check_color_support() {
+    if [[ -t 1 ]] && [[ "${TERM:-}" != "dumb" ]] && command -v tput >/dev/null 2>&1; then
+        local colors
+        if colors=$(tput colors 2>/dev/null) && [[ "$colors" -ge 8 ]]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+init_environment() {
+    export LC_ALL=C
+    export LANG=C
+    export DEBIAN_FRONTEND=noninteractive
+    export APT_LISTCHANGES_FRONTEND=none
+
+    mkdir -p "$BACKUP_DIR" "$(dirname "$LOG_FILE")" 2>/dev/null
+    chmod 700 "$BACKUP_DIR" 2>/dev/null
+    : >> "$LOG_FILE"
+    chmod 640 "$LOG_FILE" 2>/dev/null
+    
+    # --- FIX 1: Removed 'EXIT' from trap to prevent script termination ---
+    trap 'handle_interrupt' INT TERM
+    
+    PRIMARY_INTERFACE=$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')
+    if ! check_color_support; then
+        AS_RED="" AS_GREEN="" AS_YELLOW="" AS_BLUE="" AS_CYAN="" AS_NC=""
+    fi
+}
+
+handle_interrupt() {
+    log_message WARN "Script interrupted. Cleaning up..."
+    local pids
+    pids=$(jobs -p 2>/dev/null)
+    if [[ -n "$pids" ]]; then
+        echo "$pids" | xargs -r kill -TERM 2>/dev/null || true
+        sleep 1
+        echo "$pids" | xargs -r kill -KILL 2>/dev/null || true
+    fi
+    rm -f /tmp/dns_test_$$_* /tmp/conn_test_$$_* 2>/dev/null
+    exit 130
+}
+
+log_message() {
+    local level="$1"
+    local message="$2"
+    local timestamp color
+    printf -v timestamp '%(%Y-%m-%d %H:%M:%S)T' -1
+    case "$level" in
+        INFO) color="$AS_BLUE" ;;
+        WARN) color="$AS_YELLOW" ;;
+        ERROR) color="$AS_RED" ;;
+        SUCCESS) color="$AS_GREEN" ;;
+        *) color="$AS_NC" ;;
+    esac
+    local log_line="[$timestamp] [$level] $message"
+    printf "%s%s%s\n" "$color" "$log_line" "$AS_NC" | tee -a "$LOG_FILE"
+}
+
+check_internet_connection() {
+    local test_ips=("8.8.8.8" "1.1.1.1" "9.9.9.9")
+    local pids=()
+    local success=0
+    for ip in "${test_ips[@]}"; do
+        timeout 3 ping -c1 -W2 "$ip" &>/dev/null &
+        pids+=($!)
+    done
+    for pid in "${pids[@]}"; do
+        if wait "$pid" 2>/dev/null; then
+            success=1
+            break
+        fi
+    done
+    for pid in "${pids[@]}"; do
+        kill "$pid" 2>/dev/null || true
+    done
+    return $((1 - success))
+}
+
+wait_for_dpkg_lock() {
+    local max_wait=300
+    local waited=0
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+        if [[ "$waited" -ge "$max_wait" ]]; then
+            log_message ERROR "Timeout waiting for package manager"
+            return 1
+        fi
+        if [[ $((waited % 30)) -eq 0 ]]; then
+            log_message WARN "Package manager locked. Waiting... (${waited}s/${max_wait}s)"
+        fi
+        sleep 5
+        waited=$((waited + 5))
+    done
+    return 0
+}
+
+reset_environment() {
+    log_message INFO "Resetting environment after package installation..."
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get clean 2>/dev/null || true
+        rm -f /var/lib/dpkg/lock* /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null || true
+    fi
+    reset 2>/dev/null || true
+    stty sane 2>/dev/null || true
+    hash -r 2>/dev/null || true
+    [[ -f /etc/environment ]] && source /etc/environment 2>/dev/null || true
+    [[ -f ~/.bashrc ]] && source ~/.bashrc 2>/dev/null || true
+    export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+    local hanging_procs
+    hanging_procs=$(ps aux | grep -E "(apt|dpkg|unattended)" | grep -v grep | awk '{print $2}' 2>/dev/null || true)
+    if [[ -n "$hanging_procs" ]]; then
+        echo "$hanging_procs" | xargs -r kill -9 2>/dev/null || true
+    fi
+    sleep 3
+    log_message SUCCESS "Environment reset completed."
+    if ! test_environment_health; then
+        suggest_reconnection
+        return 1
+    fi
+    return 0
+}
+
+test_environment_health() {
+    log_message INFO "Testing environment health..."
+    local test_commands=("ping" "dig" "ethtool" "ip" "sysctl")
+    local failed_commands=()
+    for cmd in "${test_commands[@]}"; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            failed_commands+=("$cmd")
+        fi
+    done
+    if ! echo "test" >/dev/null 2>&1; then
+        log_message WARN "Terminal output test failed"
+        return 1
+    fi
+    if ! touch "/tmp/netopt_test_$$" 2>/dev/null; then
+        log_message WARN "File system access test failed"
+        return 1
+    fi
+    rm -f "/tmp/netopt_test_$$" 2>/dev/null
+    if [[ "${#failed_commands[@]}" -gt 0 ]]; then
+        log_message WARN "Some commands not found: ${failed_commands[*]}"
+        return 1
+    fi
+    log_message SUCCESS "Environment health check passed."
+    return 0
+}
+
+suggest_reconnection() {
+    printf "\n%s╔════════════════════════════════════════════════════════╗%s\n" "$AS_RED" "$AS_NC"
+    printf "%s║                    ATTENTION REQUIRED                 ║%s\n" "$AS_RED" "$AS_NC"
+    printf "%s╚════════════════════════════════════════════════════════╝%s\n\n" "$AS_RED" "$AS_NC"
+    log_message WARN "Environment issues detected after package installation."
+    printf "%sFor optimal performance, please:%s\n\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s1. %sPress Ctrl+C to exit this script%s\n" "$AS_CYAN" "$C_WHITE" "$AS_NC"
+    printf "%s2. %sReconnect your SSH session%s\n" "$AS_CYAN" "$C_WHITE" "$AS_NC"
+    printf "%s3. %sRun the script again%s\n\n" "$AS_CYAN" "$C_WHITE" "$AS_NC"
+    printf "%sThis ensures all environment changes take effect properly.%s\n\n" "$AS_YELLOW" "$AS_NC"
+    local countdown=30
+    while [[ $countdown -gt 0 ]]; do
+        printf "\r%sContinuing anyway in %d seconds (Press Ctrl+C to exit)...%s" "$AS_YELLOW" "$countdown" "$AS_NC"
+        sleep 1
+        ((countdown--))
+    done
+    printf "\n\n"
+    read -erp "Continue with potential issues? (y/N): " choice
+    if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+        log_message INFO "Script paused for SSH reconnection. Please run again after reconnecting."
+        exit 0
+    fi
+    log_message WARN "Continuing despite environment issues..."
+}
+
+install_dependencies() {
+    log_message INFO "Checking and installing required dependencies..."
+    if ! check_internet_connection; then
+        log_message ERROR "No internet connection available."
+        return 1
+    fi
+    local pkg_manager="" update_cmd="" install_cmd=""
+    if command -v apt-get >/dev/null 2>&1; then
+        pkg_manager="apt-get"
+        update_cmd="apt-get update -qq"
+        install_cmd="apt-get install -y -qq"
+    elif command -v yum >/dev/null 2>&1; then
+        pkg_manager="yum"
+        update_cmd="yum makecache"
+        install_cmd="yum install -y"
+    elif command -v dnf >/dev/null 2>&1; then
+        pkg_manager="dnf"
+        update_cmd="dnf makecache"
+        install_cmd="dnf install -y"
+    elif command -v pacman >/dev/null 2>&1; then
+        pkg_manager="pacman"
+        update_cmd="pacman -Sy"
+        install_cmd="pacman -S --noconfirm"
+    elif command -v zypper >/dev/null 2>&1; then
+        pkg_manager="zypper"
+        update_cmd="zypper refresh"
+        install_cmd="zypper install -y"
+    else
+        log_message ERROR "No supported package manager found"
+        return 1
+    fi
+    log_message INFO "Detected package manager: $pkg_manager"
+    if [[ "$pkg_manager" == "apt-get" ]]; then
+        if ! wait_for_dpkg_lock; then
+            log_message ERROR "Could not acquire package lock"
+            return 1
+        fi
+        pkill -9 apt-get apt dpkg 2>/dev/null || true
+        rm -f /var/lib/dpkg/lock* /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null
+        dpkg --configure -a 2>/dev/null || true
+    fi
+    log_message INFO "Updating package lists..."
+    if ! timeout 180 $update_cmd 2>/dev/null; then
+        log_message WARN "Package update failed, continuing anyway..."
+    fi
+    local deps=()
+    case "$pkg_manager" in
+        "apt-get") deps=("ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq") ;;
+        "yum"|"dnf") deps=("ethtool" "net-tools" "bind-utils" "mtr" "iperf3" "jq") ;;
+        "pacman") deps=("ethtool" "net-tools" "bind-tools" "mtr" "iperf3" "jq") ;;
+        "zypper") deps=("ethtool" "net-tools" "bind-utils" "mtr" "iperf3" "jq") ;;
+    esac
+    local missing_deps=()
+    for dep in "${deps[@]}"; do
+        if ! command -v "${dep%%-*}" >/dev/null 2>&1; then
+            missing_deps+=("$dep")
+        fi
+    done
+    if [[ "${#missing_deps[@]}" -gt 0 ]]; then
+        log_message WARN "Installing: ${missing_deps[*]}"
+        local install_options=""
+        if [[ "$pkg_manager" == "apt-get" ]]; then
+            install_options="-o DPkg::Options::=--force-confold -o DPkg::Options::=--force-confdef -o APT::Install-Recommends=false"
+        fi
+        printf "%sInstalling packages (timeout: 10min)...%s\n" "$AS_YELLOW" "$AS_NC"
+        if timeout 600 $install_cmd $install_options "${missing_deps[@]}" 2>/dev/null; then
+            log_message SUCCESS "Dependencies installed successfully."
+            if ! reset_environment; then
+                return 1
+            fi
+        else
+            local exit_code=$?
+            if [[ "$exit_code" -eq 124 ]]; then
+                log_message ERROR "Installation timed out"
+            else
+                log_message WARN "Some packages failed to install, continuing..."
+            fi
+            return 1
+        fi
+    else
+        log_message INFO "All dependencies are already installed."
+    fi
+    return 0
+}
+
+create_backup() {
+    local file_path="$1"
+    local backup_name
+    printf -v backup_name '%s.bak.%(%s)T' "$(basename "$file_path")" -1
+    if cp -f "$file_path" "$BACKUP_DIR/$backup_name" 2>/dev/null; then
+        log_message INFO "Backup created: $backup_name"
+        printf '%s\n' "$BACKUP_DIR/$backup_name"
+        return 0
+    else
+        log_message ERROR "Backup failed for $file_path"
+        return 1
+    fi
+}
+
+restore_backup() {
+    local original_file="$1"
+    local backup_file="$2"
+    if cp -f "$backup_file" "$original_file" 2>/dev/null; then
+        log_message SUCCESS "Restored $original_file from backup"
+        return 0
+    else
+        log_message ERROR "Failed to restore from backup"
+        return 1
+    fi
+}
+
+show_header_as_bbr() {
+    clear
+    log_message INFO "Displaying header information."
+    local hostname kernel_version uptime
+    hostname=$(hostname 2>/dev/null || echo "Unknown")
+    kernel_version=$(uname -r 2>/dev/null || echo "Unknown")
+    uptime=$(uptime -p 2>/dev/null || echo "Unknown")
+    printf "\n%s===========================================%s\n" "$AS_BLUE" "$AS_NC"
+    printf "" "$AS_CYAN" "$AS_NC"
+    printf "" "$AS_CYAN" "$AS_NC"
+    printf "%s===========================================%s\n" "$AS_BLUE" "$AS_NC"
+    printf "%sHostname: %s%s\n" "$AS_GREEN" "$hostname" "$AS_NC"
+    printf "%sKernel Version: %s%s\n" "$AS_GREEN" "$kernel_version" "$AS_NC"
+    printf "%sUptime: %s%s\n" "$AS_GREEN" "$uptime" "$AS_NC"
+    printf "%sDefault Interface: %s%s\n" "$AS_GREEN" "${PRIMARY_INTERFACE:-"Not detected"}" "$AS_NC"
+    if check_internet_connection >/dev/null 2>&1; then
+        printf "%sInternet: Connected%s\n" "$AS_GREEN" "$AS_NC"
+    else
+        printf "%sInternet: Disconnected%s\n" "$AS_RED" "$AS_NC"
+    fi
+    printf "%s===========================================%s\n\n" "$AS_BLUE" "$AS_NC"
+}
+
+fix_etc_hosts() {
+    local host_path="${1:-/etc/hosts}"
+    local hostname_cached
+    log_message INFO "Starting to fix the hosts file..."
+    hostname_cached=$(hostname 2>/dev/null || echo "localhost")
+    local backup_path
+    if ! backup_path=$(create_backup "$host_path"); then
+        log_message ERROR "Failed to create backup of hosts file."
+        return 1
+    fi
+    if lsattr "$host_path" 2>/dev/null | grep -q 'i'; then
+        log_message WARN "File $host_path is immutable. Making it mutable..."
+        if ! chattr -i "$host_path" 2>/dev/null; then
+            log_message ERROR "Failed to remove immutable attribute."
+            return 1
+        fi
+    fi
+    if [[ ! -w "$host_path" ]]; then
+        log_message ERROR "Cannot write to $host_path. Check permissions."
+        return 1
+    fi
+    if ! grep -q "$hostname_cached" "$host_path" 2>/dev/null; then
+        local hostname_entry="127.0.1.1 $hostname_cached"
+        if printf '%s\n' "$hostname_entry" >> "$host_path"; then
+            log_message SUCCESS "Hostname entry added to hosts file."
+        else
+            log_message ERROR "Failed to add hostname entry."
+            restore_backup "$host_path" "$backup_path"
+            return 1
+        fi
+    else
+        log_message INFO "Hostname entry already present."
+    fi
+    return 0
+}
+
+fix_dns() {
+    local dns_file="/etc/resolv.conf"
+    log_message INFO "Starting to update DNS configuration..."
+    local backup_path
+    if ! backup_path=$(create_backup "$dns_file"); then
+        log_message ERROR "Failed to create backup of DNS configuration."
+        return 1
+    fi
+    if lsattr "$dns_file" 2>/dev/null | grep -q 'i'; then
+        log_message WARN "File $dns_file is immutable. Making it mutable..."
+        if ! chattr -i "$dns_file" 2>/dev/null; then
+            log_message ERROR "Failed to remove immutable attribute."
+            return 1
+        fi
+    fi
+    if [[ ! -w "$dns_file" ]]; then
+        log_message ERROR "Cannot write to $dns_file. Check permissions."
+        return 1
+    fi
+    local current_time
+    printf -v current_time '%(%Y-%m-%d %H:%M:%S)T' -1
+    local dns1="${TARGET_DNS[0]}"
+    local dns2="${TARGET_DNS[1]}"
+    if cat > "$dns_file" << EOF
+# Generated by network optimizer on $current_time
+nameserver $dns1
+nameserver $dns2
+options rotate timeout:1 attempts:3
+EOF
+    then
+        log_message SUCCESS "DNS configuration updated successfully."
+        if dig +short +timeout=2 google.com @"$dns1" >/dev/null 2>&1; then
+            log_message SUCCESS "DNS resolution verified."
+        else
+            log_message WARN "DNS verification failed, but continuing..."
+        fi
+    else
+        log_message ERROR "Failed to update DNS configuration."
+        restore_backup "$dns_file" "$backup_path"
+        return 1
+    fi
+    return 0
+}
+
+custom_dns_config() {
+    log_message INFO "Starting custom DNS configuration..."
+    read -erp "Enter primary DNS server IP: " dns1
+    read -erp "Enter secondary DNS server IP: " dns2
+    if ! [[ "$dns1" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        log_message ERROR "Invalid primary DNS IP format"
+        return 1
+    fi
+    if ! [[ "$dns2" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        log_message ERROR "Invalid secondary DNS IP format"
+        return 1
+    fi
+    log_message INFO "Applying custom DNS: $dns1, $dns2"
+    custom_fix_dns "$dns1" "$dns2"
+}
+
+custom_fix_dns() {
+    local custom_dns1="$1"
+    local custom_dns2="$2"
+    local dns_file="/etc/resolv.conf"
+    log_message INFO "Updating DNS configuration with custom servers..."
+    local backup_path
+    if ! backup_path=$(create_backup "$dns_file"); then
+        log_message ERROR "Failed to create backup of DNS configuration."
+        return 1
+    fi
+    if lsattr "$dns_file" 2>/dev/null | grep -q 'i'; then
+        log_message WARN "File $dns_file is immutable. Making it mutable..."
+        if ! chattr -i "$dns_file" 2>/dev/null; then
+            log_message ERROR "Failed to remove immutable attribute."
+            return 1
+        fi
+    fi
+    if [[ ! -w "$dns_file" ]]; then
+        log_message ERROR "Cannot write to $dns_file. Check permissions."
+        return 1
+    fi
+    local current_time
+    printf -v current_time '%(%Y-%m-%d %H:%M:%S)T' -1
+    if cat > "$dns_file" << EOF
+# Generated by network optimizer on $current_time
+# Custom DNS configuration
+nameserver $custom_dns1
+nameserver $custom_dns2
+options rotate timeout:1 attempts:3
+EOF
+    then
+        log_message SUCCESS "Custom DNS configuration applied successfully."
+        log_message INFO "Primary DNS: $custom_dns1"
+        log_message INFO "Secondary DNS: $custom_dns2"
+        if dig +short +timeout=2 google.com @"$custom_dns1" >/dev/null 2>&1; then
+            log_message SUCCESS "Custom DNS resolution verified."
+        else
+            log_message WARN "Custom DNS verification failed, but continuing..."
+        fi
+    else
+        log_message ERROR "Failed to update DNS configuration."
+        restore_backup "$dns_file" "$backup_path"
+        return 1
+    fi
+    return 0
+}
+
+gather_system_info() {
+    log_message INFO "Gathering system information..."
+    local cpu_cores total_ram
+    cpu_cores=$(nproc 2>/dev/null | head -1)
+    cpu_cores=$(printf '%s' "$cpu_cores" | tr -cd '0-9')
+    if [[ -z "$cpu_cores" ]] || ! [[ "$cpu_cores" =~ ^[0-9]+$ ]] || [[ "$cpu_cores" -eq 0 ]]; then
+        log_message WARN "CPU detection failed. Using fallback value."
+        cpu_cores=1
+    fi
+    total_ram=$(awk '/MemTotal:/ {print int($2/1024); exit}' /proc/meminfo 2>/dev/null | head -1)
+    total_ram=$(printf '%s' "$total_ram" | tr -cd '0-9')
+    if [[ -z "$total_ram" ]] || ! [[ "$total_ram" =~ ^[0-9]+$ ]] || [[ "$total_ram" -eq 0 ]]; then
+        log_message WARN "RAM detection failed. Using fallback value."
+        total_ram=1024
+    fi
+    log_message INFO "System Information:"
+    log_message INFO "CPU cores: $cpu_cores"
+    log_message INFO "Total RAM: ${total_ram}MB"
+    local optimal_backlog optimal_mem
+    optimal_backlog=$((50000 * cpu_cores))
+    optimal_mem=$((total_ram * 1024 / 4))
+    SYSTEM_CPU_CORES=$cpu_cores
+    SYSTEM_TOTAL_RAM=$total_ram
+    SYSTEM_OPTIMAL_BACKLOG=$optimal_backlog
+    SYSTEM_OPTIMAL_MEM=$optimal_mem
+    return 0
+}
+
+optimize_network() {
+    local interface="$1"
+    if [[ -z "$interface" ]]; then
+        log_message ERROR "No interface specified."
+        return 1
+    fi
+    log_message INFO "Optimizing network interface $interface..."
+    if [[ -z "$SYSTEM_OPTIMAL_BACKLOG" ]]; then
+        gather_system_info
+    fi
+    local max_mem=$SYSTEM_OPTIMAL_MEM
+    if [[ "$max_mem" -gt 16777216 ]]; then
+        max_mem=16777216
+    fi
+    log_message INFO "Configuring NIC offload settings..."
+    {
+        ethtool -K "$interface" tso on gso on gro on 2>/dev/null
+        ethtool -G "$interface" rx 4096 tx 4096 2>/dev/null
+    } || true
+    if ethtool -k "$interface" 2>/dev/null | grep -q "rx-udp-gro-forwarding"; then
+        log_message INFO "Enabling UDP GRO forwarding..."
+        ethtool -K "$interface" rx-udp-gro-forwarding on rx-gro-list off 2>/dev/null || true
+    fi
+    local sysctl_conf="/etc/sysctl.d/99-network-optimizer.conf"
+    log_message INFO "Creating network optimization configuration..."
+    if [[ -f "$sysctl_conf" ]]; then
+        create_backup "$sysctl_conf"
+    fi
+    local current_time
+    printf -v current_time '%(%Y-%m-%d %H:%M:%S)T' -1
+    cat > "$sysctl_conf" << EOF
+# Network optimizations added on $current_time
+net.core.netdev_max_backlog = $SYSTEM_OPTIMAL_BACKLOG
+net.core.rmem_max = $max_mem
+net.core.wmem_max = $max_mem
+net.core.rmem_default = 262144
+net.core.wmem_default = 262144
+net.core.default_qdisc = fq
+net.ipv4.tcp_rmem = 4096 87380 $max_mem
+net.ipv4.tcp_wmem = 4096 65536 $max_mem
+net.ipv4.tcp_window_scaling = 1
+net.ipv4.tcp_timestamps = 1
+net.ipv4.tcp_sack = 1
+net.ipv4.tcp_congestion_control = bbr
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_max_syn_backlog = $SYSTEM_OPTIMAL_BACKLOG
+net.ipv4.tcp_max_tw_buckets = 2000000
+net.ipv4.tcp_tw_reuse = 1
+net.ipv4.tcp_fin_timeout = 10
+net.ipv4.tcp_slow_start_after_idle = 0
+net.ipv4.tcp_mtu_probing = 1
+net.ipv4.tcp_no_metrics_save = 1
+net.ipv4.ip_local_port_range = 1024 65535
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.tcp_syncookies = 1
+EOF
+    if sysctl -p "$sysctl_conf" &>/dev/null; then
+        log_message SUCCESS "Network optimizations applied successfully."
+    else
+        log_message ERROR "Failed to apply network optimizations."
+        return 1
+    fi
+    local current_cc
+    current_cc=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)
+    if [[ "$current_cc" == "bbr" ]]; then
+        log_message SUCCESS "TCP BBR congestion control enabled."
+    else
+        log_message WARN "TCP BBR not available. Falling back to cubic."
+        sysctl -w net.ipv4.tcp_congestion_control=cubic &>/dev/null
+    fi
+    if ip link set dev "$interface" txqueuelen 10000 2>/dev/null; then
+        log_message SUCCESS "Increased TX queue length for $interface."
+    else
+        log_message WARN "Failed to set TX queue length."
+    fi
+    return 0
+}
+
+find_best_mtu() {
+    local interface="$1"
+    local target_ip="8.8.8.8"
+    if [[ -z "$interface" ]]; then
+        log_message ERROR "No interface specified for MTU optimization."
+        return 1
+    fi
+    log_message INFO "Starting MTU optimization for interface $interface..."
+    local current_mtu
+    if ! current_mtu=$(cat "/sys/class/net/$interface/mtu" 2>/dev/null); then
+        current_mtu=$(ip link show "$interface" 2>/dev/null | sed -n 's/.*mtu \([0-9]*\).*/\1/p')
+    fi
+    if [[ -z "$current_mtu" ]] || [[ ! "$current_mtu" =~ ^[0-9]+$ ]]; then
+        log_message ERROR "Could not determine current MTU for $interface"
+        return 1
+    fi
+    log_message INFO "Current MTU: $current_mtu"
+    if ! ip addr show "$interface" 2>/dev/null | grep -q "inet "; then
+        log_message ERROR "Interface $interface is not configured with an IP address"
+        return 1
+    fi
+    log_message INFO "Testing basic connectivity..."
+    if ! ping -c 1 -W 3 "$target_ip" &>/dev/null; then
+        log_message ERROR "No internet connectivity. Cannot perform MTU optimization."
+        return 1
+    fi
+    test_mtu_size() {
+        local size="$1"
+        local payload_size=$((size - 28))
+        if [[ "$payload_size" -lt 0 ]]; then return 1; fi
+        local attempts=0; local success=0
+        while [[ "$attempts" -lt 3 ]] && [[ "$success" -eq 0 ]]; do
+            if ping -M do -s "$payload_size" -c 1 -W 2 -i 0.2 "$target_ip" &>/dev/null; then
+                success=1; break
+            fi
+            ((attempts++)); sleep 0.1
+        done
+        return $((1 - success))
+    }
+    local optimal_mtu="$current_mtu"
+    local found_working=0
+    log_message INFO "Testing common MTU sizes..."
+    local common_mtus=(1500 1492 1480 1472 1468 1460 1450 1440 1430 1420 1400 1380 1360 1340 1300 1280 1200 1024)
+    for size in "${common_mtus[@]}"; do
+        if [[ "$size" -le "$current_mtu" ]]; then
+            printf "  Testing MTU %d... " "$size"
+            if test_mtu_size "$size"; then
+                printf "${AS_GREEN}✓${AS_NC}\n"
+                optimal_mtu="$size"; found_working=1; break
+            else
+                printf "${AS_RED}✗${AS_NC}\n"
+            fi
+        fi
+    done
+    if [[ "$found_working" -eq 0 ]]; then
+        log_message INFO "Common MTUs failed. Performing binary search..."
+        local min_mtu=576; local max_mtu="$current_mtu"; local test_mtu
+        while [[ "$min_mtu" -le "$max_mtu" ]]; do
+            test_mtu=$(( (min_mtu + max_mtu) / 2 ))
+            printf "  Testing MTU %d... " "$test_mtu"
+            if test_mtu_size "$test_mtu"; then
+                printf "${AS_GREEN}✓${AS_NC}\n"
+                optimal_mtu="$test_mtu"; min_mtu=$((test_mtu + 1)); found_working=1
+            else
+                printf "${AS_RED}✗${AS_NC}\n"
+                max_mtu=$((test_mtu - 1))
+            fi
+        done
+    fi
+    if [[ "$found_working" -eq 1 ]]; then
+        if [[ "$optimal_mtu" -ne "$current_mtu" ]]; then
+            log_message INFO "Applying optimal MTU: $optimal_mtu"
+            if ip link set "$interface" mtu "$optimal_mtu" 2>/dev/null; then
+                log_message SUCCESS "MTU successfully set to $optimal_mtu"
+                local new_mtu
+                new_mtu=$(cat "/sys/class/net/$interface/mtu" 2>/dev/null)
+                if [[ "$new_mtu" = "$optimal_mtu" ]]; then
+                    log_message SUCCESS "MTU change verified: $new_mtu"
+                else
+                    log_message WARN "MTU verification failed. Reported: $new_mtu"
+                fi
+            else
+                log_message ERROR "Failed to set MTU to $optimal_mtu"
+                return 1
+            fi
+        else
+            log_message INFO "Current MTU ($current_mtu) is already optimal"
+        fi
+    else
+        log_message WARN "Could not find working MTU. Keeping current MTU: $current_mtu"
+    fi
+    return 0
+}
+
+restore_defaults() {
+    log_message INFO "Restoring original settings..."
+    read -erp "Are you sure you want to restore default settings? (y/N): " choice
+    if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+        log_message INFO "Restoration cancelled."
+        return 0
+    fi
+    local sysctl_backup hosts_backup resolv_backup
+    sysctl_backup=$(find "$BACKUP_DIR" -name "99-network-optimizer.conf.bak*" -type f 2>/dev/null | sort -V | tail -n1)
+    hosts_backup=$(find "$BACKUP_DIR" -name "hosts.bak*" -type f 2>/dev/null | sort -V | tail -n1)
+    resolv_backup=$(find "$BACKUP_DIR" -name "resolv.conf.bak*" -type f 2>/dev/null | sort -V | tail -n1)
+    if [[ -f "$sysctl_backup" ]]; then
+        if cp -f "$sysctl_backup" "/etc/sysctl.d/99-network-optimizer.conf" 2>/dev/null; then
+            sysctl -p "/etc/sysctl.d/99-network-optimizer.conf" &>/dev/null
+            log_message SUCCESS "Restored sysctl settings"
+        else
+            log_message ERROR "Failed to restore sysctl settings"
+        fi
+    else
+        log_message WARN "No sysctl backup found. Removing optimization file..."
+        rm -f "/etc/sysctl.d/99-network-optimizer.conf"
+        log_message INFO "Reset to system defaults"
+    fi
+    if [[ -f "$hosts_backup" ]]; then
+        if cp -f "$hosts_backup" "/etc/hosts" 2>/dev/null; then
+            log_message SUCCESS "Restored hosts file"
+        else
+            log_message ERROR "Failed to restore hosts file"
+        fi
+    else
+        log_message WARN "No hosts backup found"
+    fi
+    if [[ -f "$resolv_backup" ]]; then
+        if cp -f "$resolv_backup" "/etc/resolv.conf" 2>/dev/null; then
+            log_message SUCCESS "Restored DNS settings"
+        else
+            log_message ERROR "Failed to restore DNS settings"
+        fi
+    else
+        log_message WARN "No DNS backup found"
+    fi
+    log_message SUCCESS "Original settings restored successfully."
+    log_message INFO "A system reboot is recommended for changes to take effect."
+    read -erp "Would you like to reboot now? (y/N): " choice
+    if [[ "$choice" =~ ^[Yy]$ ]]; then
+        reboot
+    fi
+    return 0
+}
+
+run_diagnostics() {
+    local interface="${PRIMARY_INTERFACE:-$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')}"
+    clear
+    printf "\n%s╔════════════════════════════════════════╗%s\n" "$AS_CYAN" "$AS_NC"
+    printf "%s║           Network Diagnostics         ║%s\n" "$AS_CYAN" "$AS_NC"
+    printf "%s╚════════════════════════════════════════╝%s\n\n" "$AS_CYAN" "$AS_NC"
+    printf "%s┌─ [1] Network Interface Status%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    if [[ -n "$interface" ]]; then
+        printf "%s│%s Interface: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "$interface" "$AS_NC"
+        local ip_info speed duplex link_status mtu
+        ip_info=$(ip -4 addr show "$interface" 2>/dev/null | grep "inet " | awk '{print $2}' | head -1)
+        if [[ -n "$ip_info" ]]; then
+            printf "%s│%s IPv4 Address: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "$ip_info" "$AS_NC"
+        else
+            printf "%s│%s IPv4 Address: %sNot configured%s\n" "$AS_YELLOW" "$AS_NC" "$AS_RED" "$AS_NC"
+        fi
+        mtu=$(cat "/sys/class/net/$interface/mtu" 2>/dev/null || echo "Unknown")
+        printf "%s│%s MTU: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "$mtu" "$AS_NC"
+        if command -v ethtool &>/dev/null; then
+            local ethtool_output; ethtool_output=$(ethtool "$interface" 2>/dev/null)
+            if [[ -n "$ethtool_output" ]]; then
+                speed=$(echo "$ethtool_output" | grep "Speed:" | awk '{print $2}' | head -1)
+                duplex=$(echo "$ethtool_output" | grep "Duplex:" | awk '{print $2}' | head -1)
+                link_status=$(echo "$ethtool_output" | grep "Link detected:" | awk '{print $3}' | head -1)
+                [[ "$speed" = "Unknown!" ]] && speed="Unknown"; [[ "$duplex" = "Unknown!" ]] && duplex="Unknown"
+                printf "%s│%s Speed: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "${speed:-Unknown}" "$AS_NC"
+                printf "%s│%s Duplex: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "${duplex:-Unknown}" "$AS_NC"
+                printf "%s│%s Link: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "${link_status:-Unknown}" "$AS_NC"
+            fi
+        fi
+        local rx_bytes tx_bytes
+        if [[ -f "/sys/class/net/$interface/statistics/rx_bytes" ]]; then
+            rx_bytes=$(cat "/sys/class/net/$interface/statistics/rx_bytes" 2>/dev/null)
+            tx_bytes=$(cat "/sys/class/net/$interface/statistics/tx_bytes" 2>/dev/null)
+            if [[ -n "$rx_bytes" ]] && [[ -n "$tx_bytes" ]]; then
+                rx_human=$(numfmt --to=iec --suffix=B "$rx_bytes" 2>/dev/null || echo "$rx_bytes bytes")
+                tx_human=$(numfmt --to=iec --suffix=B "$tx_bytes" 2>/dev/null || echo "$tx_bytes bytes")
+                printf "%s│%s RX: %s%s%s, TX: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "$rx_human" "$AS_NC" "$AS_GREEN" "$tx_human" "$AS_NC"
+            fi
+        fi
+    else
+        printf "%s│%s %sNo interface detected%s\n" "$AS_YELLOW" "$AS_NC" "$AS_RED" "$AS_NC"
+    fi
+    printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [2] DNS Resolution Test%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    local dns_pids=()
+    for dns in "${TARGET_DNS[@]}"; do
+        { local result="FAIL"; local time_taken="N/A"; if command -v dig &>/dev/null; then local dig_output; dig_output=$(dig +short +time=2 +tries=1 google.com @"$dns" 2>/dev/null); if [[ -n "$dig_output" ]] && [[ "$dig_output" != *"connection timed out"* ]]; then result="OK"; local query_time; query_time=$(dig +noall +stats google.com @"$dns" 2>/dev/null | grep "Query time:" | awk '{print $4}'); if [[ -n "$query_time" ]]; then time_taken="${query_time}ms"; fi; fi; else if nslookup google.com "$dns" &>/dev/null; then result="OK"; fi; fi; echo "$dns|$result|$time_taken" > "/tmp/dns_test_$$_$dns"; } &
+        dns_pids+=($!)
+    done
+    for pid in "${dns_pids[@]}"; do wait "$pid" 2>/dev/null || true; done
+    for dns in "${TARGET_DNS[@]}"; do if [[ -f "/tmp/dns_test_$$_$dns" ]]; then local dns_result; IFS='|' read -r dns_ip status query_time < "/tmp/dns_test_$$_$dns"; if [[ "$status" = "OK" ]]; then printf "%s│%s %s%s%s (%s) - %s%s%s" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "✓" "$AS_NC" "$dns_ip" "$AS_GREEN" "$status" "$AS_NC"; if [[ "$query_time" != "N/A" ]]; then printf " [%s]" "$query_time"; fi; printf "\n"; else printf "%s│%s %s%s%s (%s) - %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_RED" "✗" "$AS_NC" "$dns_ip" "$AS_RED" "$status" "$AS_NC"; fi; rm -f "/tmp/dns_test_$$_$dns"; fi; done
+    printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [3] Internet Connectivity%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    local test_hosts=("google.com" "github.com" "cloudflare.com" "quad9.net"); local conn_pids=()
+    for host in "${test_hosts[@]}"; do { local result="FAIL"; local rtt="N/A"; local ping_output; ping_output=$(ping -c 1 -W 3 "$host" 2>/dev/null); if [[ $? -eq 0 ]]; then result="OK"; rtt=$(echo "$ping_output" | grep "time=" | sed 's/.*time=\([0-9.]*\).*/\1/'); if [[ -n "$rtt" ]]; then rtt="${rtt}ms"; fi; fi; echo "$host|$result|$rtt" > "/tmp/conn_test_$$_${host//\./_}"; } & conn_pids+=($!); done
+    for pid in "${conn_pids[@]}"; do wait "$pid" 2>/dev/null || true; done
+    for host in "${test_hosts[@]}"; do local temp_file="/tmp/conn_test_$$_${host//\./_}"; if [[ -f "$temp_file" ]]; then local conn_result; IFS='|' read -r hostname status rtt < "$temp_file"; if [[ "$status" = "OK" ]]; then printf "%s│%s %s%s%s %-15s - %s%s%s" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "✓" "$AS_NC" "$hostname" "$AS_GREEN" "$status" "$AS_NC"; if [[ "$rtt" != "N/A" ]]; then printf " [%s]" "$rtt"; fi; printf "\n"; else printf "%s│%s %s%s%s %-15s - %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_RED" "✗" "$AS_NC" "$hostname" "$AS_RED" "$status" "$AS_NC"; fi; rm -f "$temp_file"; fi; done
+    printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [4] Network Configuration%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    local current_cc available_cc; current_cc=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo "Unknown"); available_cc=$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || echo "Unknown")
+    printf "%s│%s TCP Congestion Control: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "$current_cc" "$AS_NC"
+    printf "%s│%s Available Algorithms: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_CYAN" "$available_cc" "$AS_NC"
+    local default_route gateway; default_route=$(ip route show default 2>/dev/null | head -1)
+    if [[ -n "$default_route" ]]; then gateway=$(echo "$default_route" | awk '{print $3}'); printf "%s│%s Default Gateway: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "${gateway:-Unknown}" "$AS_NC"; fi
+    printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [5] Performance Test%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s│%s Testing packet loss and latency...\n" "$AS_YELLOW" "$AS_NC"
+    local ping_result; ping_result=$(ping -c 10 -i 0.2 8.8.8.8 2>/dev/null)
+    if [[ $? -eq 0 ]]; then
+        local packet_loss rtt_avg; packet_loss=$(echo "$ping_result" | grep "packet loss" | awk '{print $(NF-1)}'); rtt_avg=$(echo "$ping_result" | tail -1 | awk -F'/' '{print $5}')
+        printf "%s│%s Packet Loss: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "${packet_loss:-Unknown}" "$AS_NC"
+        printf "%s│%s Average RTT: %s%s%sms\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "${rtt_avg:-Unknown}" "$AS_NC"
+    else
+        printf "%s│%s %sPerformance test failed%s\n" "$AS_YELLOW" "$AS_NC" "$AS_RED" "$AS_NC"
+    fi
+    printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s%s" "$AS_CYAN" "Press any key to continue..."
+    read -n 1 -s -r
+    printf "%s\n" "$AS_NC"
+}
+
+intelligent_optimize() {
+    log_message INFO "Starting intelligent network optimization..."
+    if ! check_internet_connection; then
+        log_message ERROR "No internet connection available. Cannot apply optimizations."
+        return 1
+    fi
+    local interface="${PRIMARY_INTERFACE}"
+    if [[ -z "$interface" ]]; then
+        log_message ERROR "Could not detect primary network interface."
+        return 1
+    fi
+    if ! install_dependencies; then
+        log_message ERROR "Failed to install required dependencies."
+        return 1
+    fi
+    log_message INFO "Applying optimizations to interface $interface..."
+    if ! fix_etc_hosts; then log_message ERROR "Failed to optimize hosts file."; return 1; fi
+    if ! fix_dns; then log_message ERROR "Failed to optimize DNS settings."; return 1; fi
+    if ! gather_system_info; then log_message ERROR "Failed to gather system information."; return 1; fi
+    if ! optimize_network "$interface"; then log_message ERROR "Failed to apply network optimizations."; return 1; fi
+    if ! find_best_mtu "$interface"; then log_message ERROR "Failed to optimize MTU."; return 1; fi
+    log_message SUCCESS "All optimizations completed successfully."
+    log_message INFO "A system reboot is recommended for changes to take effect."
+    read -erp "Would you like to reboot now? (y/N): " choice
+    if [[ "$choice" =~ ^[Yy]$ ]]; then reboot; fi
+    return 0
+}
+
+show_advanced_menu_as_bbr() {
+    while true; do
+        show_header_as_bbr
+        log_message INFO "Displaying advanced menu."
+        printf "%sگزینه های پیشرفته:%s\n" "$AS_CYAN" "$AS_NC"
+        printf "%s۱. بهینه سازی دستی MTU%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۲. تنظیمات سفارشی DNS%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۳. تنظیمات کنترل ازدحام TCP%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۴. تنظیمات رابط شبکه%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۵. مشاهده بهینه سازی های فعلی%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s0. بازگشت به منوی قبلی%s\n\n" "$AS_GREEN" "$AS_NC"
+        read -erp "لطفا گزینه خود را وارد کنید (0-5): " choice
+        case "$choice" in
+            1) find_best_mtu "$PRIMARY_INTERFACE" ;;
+            2) custom_dns_config ;;
+            3)
+                local available
+                available=$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null)
+                printf "Available congestion control algorithms: %s\n" "$available"
+                read -erp "Enter desired algorithm [bbr]: " algo
+                algo=${algo:-bbr}
+                sysctl -w net.ipv4.tcp_congestion_control="$algo" 2>/dev/null
+                ;;
+            4)
+                local interfaces
+                interfaces=$(ip -br link show 2>/dev/null | awk '{print $1}' | grep -v "lo")
+                printf "Available interfaces:\n%s\n" "$interfaces"
+                read -erp "Enter interface to optimize: " iface
+                optimize_network "$iface"
+                ;;
+            5)
+                printf "%sCurrent Network Optimizations:%s\n" "$AS_CYAN" "$AS_NC"
+                if [[ -f "/etc/sysctl.d/99-network-optimizer.conf" ]]; then
+                    cat "/etc/sysctl.d/99-network-optimizer.conf"
+                else
+                    printf "%sNo network optimizations applied yet.%s\n" "$AS_YELLOW" "$AS_NC"
+                fi
+                ;;
+            0) return ;;
+            *)
+                log_message WARN "Invalid option selected."
+                printf "\n%sInvalid option. Please enter a number between 0 and 5.%s\n" "$AS_RED" "$AS_NC"
+                ;;
+        esac
+        if [[ "$choice" != "0" ]]; then
+            printf "\n%sPress any key to continue...%s" "$AS_CYAN" "$AS_NC"
+            read -n 1 -s -r
+            printf "\n"
+        fi
+    done
+}
+
+show_as_bbr_menu() {
+    while true; do
+        show_header_as_bbr
+        log_message INFO "Displaying main menu."
+        printf "%sگزینه های موجود:%s\n" "$AS_CYAN" "$AS_NC"
+        printf "%s۱.اعمال بهینه سازی هوشمند%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۲.اجرای ابزار تشخیص شبکه%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۳.گزینه های پیشرفته%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۴.بازگردانی به تنظیمات اولیه%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s0.بازگشت به منوی اصلی%s\n\n" "$AS_GREEN" "$AS_NC"
+        read -erp "لطفا گزینه خود را وارد کنید (0-4): " choice
+        case "$choice" in
+            1)
+                intelligent_optimize
+                printf "\n%sبرای ادامه کلیدی را فشار دهید...%s" "$AS_CYAN" "$AS_NC"
+                read -n 1 -s -r
+                printf "\n"
+                ;;
+            2) run_diagnostics ;;
+            3) show_advanced_menu_as_bbr ;;
+            4)
+                restore_defaults
+                printf "\n%sبرای ادامه کلیدی را فشار دهید...%s" "$AS_CYAN" "$AS_NC"
+                read -n 1 -s -r
+                printf "\n"
+                ;;
+            0)
+                log_message INFO "Returning to main menu."
+                printf "\n%sدر حال بازگشت...%s\n" "$AS_YELLOW" "$AS_NC"
+                return
+                ;;
+            *)
+                log_message WARN "گزینه نامعتبر است."
+                printf "\n%sگزینه نامعتبر است. لطفا عددی بین 0 تا 4 وارد کنید.%s\n" "$AS_RED" "$AS_NC"
+                sleep 2
+                ;;
+        esac
+    done
+}
+
+run_as_bbr_optimization() {
+    init_environment
+    show_as_bbr_menu
+}
+
+# ###########################################################################
+# --- END OF MERGED SCRIPT: AS-BBR.sh ---
+# ###########################################################################
 
 manage_dns() {
     clear
@@ -108,7 +1041,7 @@ manage_dns() {
         check_service_status "systemd-resolved"
     }
     find_and_set_best_dns() {
-        local -n dns_list=$1 
+        local -n dns_list=$1
         local list_name=$2
         echo -e "\n${B_CYAN}در حال تست پینگ از لیست DNS های ${list_name}... (همیشه دو DNS با کمترین پینگ انتخاب می‌شوند)${C_RESET}"
         echo "این عملیات ممکن است کمی طول بکشد."
@@ -144,7 +1077,7 @@ manage_dns() {
         echo -e "${C_YELLOW}4)${C_WHITE} ویرایش فایل کانفیگ DNS دائمی"
         echo -e "${C_YELLOW}5)${C_WHITE} بازگشت به منوی بهینه‌سازی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+        read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
             1) find_and_set_best_dns IRAN_DNS_LIST "ایران"; break ;;
             2) find_and_set_best_dns GLOBAL_DNS_LIST "جهانی"; break ;;
@@ -165,10 +1098,10 @@ manage_ipv6() {
     echo -e "${C_YELLOW}2)${C_WHITE} فعال کردن IPV6 (حذف تنظیمات)"
     echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-    read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+    read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
     case $choice in
         1)
-            read -p "$(echo -e "${C_YELLOW}**هشدار:** این کار ممکن است اتصال شما را دچار اختلال کند. آیا مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
+            read -ep "$(echo -e "${C_YELLOW}**هشدار:** این کار ممکن است اتصال شما را دچار اختلال کند. آیا مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
             if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
                 echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
             else
@@ -211,10 +1144,10 @@ manage_ssh_root() {
   echo -e "${C_YELLOW}2)${C_WHITE} غیرفعال کردن ورود روت با رمز عبور"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-  read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+  read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
   case $choice in
     1)
-      read -p "$(echo -e "${C_YELLOW}**هشدار:** فعال کردن ورود روت ریسک امنیتی دارد. آیا مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
+      read -ep "$(echo -e "${C_YELLOW}**هشدار:** فعال کردن ورود روت ریسک امنیتی دارد. آیا مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
       if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
           echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
       else
@@ -263,7 +1196,7 @@ manage_reboot_cron() {
   echo -e "${C_YELLOW}2)${C_WHITE} حذف Cron Job ریبوت خودکار"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-  read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+  read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
   case $choice in
     1)
       (crontab -l 2>/dev/null | grep -v "/sbin/shutdown -r now"; echo "0 */12 * * * /sbin/shutdown -r now") | crontab -
@@ -286,7 +1219,7 @@ manage_tc_script() {
   echo -e "${C_YELLOW}2)${C_WHITE} حذف اسکریپت بهینه‌سازی TC"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی بهینه‌سازی"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-  read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+  read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
   SCRIPT_PATH="/usr/local/bin/tc_optimize.sh"
   case $choice in
     1)
@@ -343,7 +1276,7 @@ manage_sysctl() {
   echo -e "${C_YELLOW}3)${C_WHITE} بازگردانی به فایل پشتیبان"
   echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی بهینه‌سازی"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-  read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+  read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
   case $choice in
     1)
       backup_file $sysctl_conf
@@ -613,7 +1546,7 @@ port_scanner_menu() {
     echo -e "${C_YELLOW}3)${C_WHITE} اسکن آهسته با hping3"
     echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی امنیت"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-    read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+    read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
     case $choice in
         1)
             echo -e "\n${C_YELLOW}در حال نصب hping3 و nmap...${C_RESET}"
@@ -622,7 +1555,7 @@ port_scanner_menu() {
             echo -e "\n${C_GREEN}ابزارها با موفقیت نصب شدند.${C_RESET}"
             ;;
         2)
-            read -p "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
+            read -ep "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
             if ! is_valid_ip "$target_ip"; then
                 echo -e "\n${C_RED}خطا: آدرس IP وارد شده معتبر نیست.${C_RESET}"
             elif ! command -v nmap &> /dev/null; then
@@ -634,18 +1567,18 @@ port_scanner_menu() {
             fi
             ;;
         3)
-            read -p "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
+            read -ep "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
             if ! is_valid_ip "$target_ip"; then
                 echo -e "\n${C_RED}خطا: آدرس IP وارد شده معتبر نیست.${C_RESET}"
             elif ! command -v hping3 &> /dev/null; then
                 echo -e "\n${C_RED}خطا: hping3 نصب نیست. لطفاً ابتدا از گزینه ۱ آن را نصب کنید.${C_RESET}"
             else
                 echo -e "\n${B_YELLOW}**هشدار:** این نوع اسکن بسیار زمان‌بر است و ممکن است ساعت‌ها طول بکشد.${C_RESET}"
-                read -p "$(echo -e "${B_MAGENTA}آیا برای شروع اسکن با hping3 مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
+                read -ep "$(echo -e "${B_MAGENTA}آیا برای شروع اسکن با hping3 مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
                 if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
                     echo -e "\n${C_YELLOW}در حال اسکن آهسته پورت‌های باز روی $target_ip با hping3...${C_RESET}"
-                    for p in $(seq 1 65535); do 
-                        hping3 -S -p $p -c 1 "$target_ip" 2>/dev/null | grep 'flags=SA' && echo "Port $p is open"; 
+                    for p in $(seq 1 65535); do
+                        hping3 -S -p $p -c 1 "$target_ip" 2>/dev/null | grep 'flags=SA' && echo "Port $p is open";
                     done
                     echo -e "\n${C_GREEN}اسکن با hping3 به پایان رسید.${C_RESET}"
                 else
@@ -698,7 +1631,7 @@ manage_firewall() {
         echo -e "${C_YELLOW}6)${C_RED} غیرفعال کردن فایروال"
         echo -e "${C_YELLOW}7)${C_WHITE} بازگشت به منوی امنیت"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+        read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
             1)
                 clear
@@ -707,7 +1640,7 @@ manage_firewall() {
                 read -n 1 -s -r -p $'\nبرای ادامه کلیدی را فشار دهید...'
                 ;;
             2)
-                read -p "$(echo -e "${B_MAGENTA}پورت مورد نظر را وارد کنید: ${C_RESET}")" port
+                read -ep "$(echo -e "${B_MAGENTA}پورت مورد نظر را وارد کنید: ${C_RESET}")" port
                 if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
                     echo -e "\n${C_RED}خطا: شماره پورت نامعتبر است.${C_RESET}"
                 else
@@ -721,7 +1654,7 @@ manage_firewall() {
                 echo -e "${B_CYAN}--- حذف قانون فایروال ---${C_RESET}"
                 ufw status numbered
                 echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-                read -p "$(echo -e "${B_MAGENTA}شماره قانونی که می‌خواهید حذف شود را وارد کنید: ${C_RESET}")" rule_num
+                read -ep "$(echo -e "${B_MAGENTA}شماره قانونی که می‌خواهید حذف شود را وارد کنید: ${C_RESET}")" rule_num
                 if ! [[ "$rule_num" =~ ^[0-9]+$ ]]; then
                     echo -e "\n${C_RED}خطا: ورودی باید یک عدد باشد.${C_RESET}"
                 else
@@ -771,7 +1704,7 @@ manage_xui_offline_install() {
         echo -e "${C_YELLOW}2)${C_WHITE} راهنمای نصب آفلاین"
         echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+        read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
 
         case $choice in
             1)
@@ -850,7 +1783,7 @@ scan_arvan_ranges() {
 
     for range in "${RANGES[@]}"; do
         echo
-        read -p "$(echo -e "${B_YELLOW}--> برای اسکن رنج [${C_CYAN}${range}${B_YELLOW}] کلید Enter را بزنید (s=رد کردن, q=خروج): ${C_RESET}")" choice
+        read -ep "$(echo -e "${B_YELLOW}--> برای اسکن رنج [${C_CYAN}${range}${B_YELLOW}] کلید Enter را بزنید (s=رد کردن, q=خروج): ${C_RESET}")" choice
         case "$choice" in
             s|S) continue;;
             q|Q) break;;
@@ -858,10 +1791,10 @@ scan_arvan_ranges() {
 
         echo -e "${C_WHITE}در حال اسکن ${range}...${C_RESET}"
         mapfile -t ip_list < <(nmap -sL -n "$range" | awk '/Nmap scan report for/{print $NF}')
-        
+
         for ip in "${ip_list[@]}"; do
             echo -ne "    ${C_YELLOW}تست IP: ${ip}   \r${C_RESET}"
-            
+
             if ping -c 1 -W 1 "$ip" &> /dev/null; then
                 echo -e "    ${C_GREEN}✅ IP فعال: ${ip}${C_RESET}                "
             fi
@@ -898,24 +1831,16 @@ scan_warp_endpoints() {
     )
 
     for endpoint in "${ENDPOINTS[@]}"; do
-        # Correctly parse both IPv4 and IPv6 endpoints
         if [[ $endpoint == \[* ]]; then
-            # IPv6
             ip_host=$(echo "$endpoint" | cut -d']' -f1 | tr -d '[')
             port=$(echo "$endpoint" | cut -d']' -f2 | tr -d ':')
         else
-            # IPv4
             ip_host=$(echo "$endpoint" | cut -d: -f1)
             port=$(echo "$endpoint" | cut -d: -f2)
         fi
-        
         echo -ne "    ${C_YELLOW}تست اندپوینت: ${ip_host}:${port}   \r${C_RESET}"
-
-        # 1. Check UDP port first
         if nc -u -z -w 1 "$ip_host" "$port" &> /dev/null; then
-            # 2. If port is open, then get the ICMP ping time
             local ping_avg=$(ping -c 1 -W 1 "$ip_host" | tail -1 | awk -F '/' '{print $5}' 2>/dev/null)
-            
             if [ -n "$ping_avg" ]; then
                 echo -e "    ${C_GREEN}✅ اندپوینت فعال: ${ip_host}:${port} | پینگ: ${ping_avg} ms${C_RESET}          "
             else
@@ -937,40 +1862,25 @@ manage_ip_health_check() {
         echo -e "${C_YELLOW}3)${C_WHITE} تست سوم (git.io/JRw8R)"
         echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی امنیت"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+        read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
             1)
-                clear
-                echo -e "${C_YELLOW}در حال اجرای تست اول...${C_RESET}"
-                bash <(curl -Ls IP.Check.Place) -l en -4
-                break
-                ;;
+                clear; echo -e "${C_YELLOW}در حال اجرای تست اول...${C_RESET}"
+                bash <(curl -Ls IP.Check.Place) -l en -4; break ;;
             2)
-                clear
-                echo -e "${C_YELLOW}در حال اجرای تست دوم...${C_RESET}"
-                bash <(curl -L -s https://bench.openode.xyz/multi_check.sh)
-                break
-                ;;
+                clear; echo -e "${C_YELLOW}در حال اجرای تست دوم...${C_RESET}"
+                bash <(curl -L -s https://bench.openode.xyz/multi_check.sh); break ;;
             3)
-                clear
-                echo -e "${C_YELLOW}در حال اجرای تست سوم...${C_RESET}"
-                bash <(curl -L -s https://git.io/JRw8R) -E en -M 4
-                break
-                ;;
-            4)
-                return
-                ;;
-            *)
-                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"
-                sleep 1
-                ;;
+                clear; echo -e "${C_YELLOW}در حال اجرای تست سوم...${C_RESET}"
+                bash <(curl -L -s https://git.io/JRw8R) -E en -M 4; break ;;
+            4) return ;;
+            *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
-
-# --- NEW MAIN MENUS ---
+# --- MAIN MENUS ---
 
 manage_network_optimization() {
     while true; do
@@ -978,23 +1888,25 @@ manage_network_optimization() {
         echo -e "${B_CYAN}--- بهینه سازی شبکه و اتصال ---${C_RESET}\n"
         echo -e "${C_YELLOW}1) ${C_WHITE}بهینه سازی سرعت (TC)"
         echo -e "${C_YELLOW}2) ${C_WHITE}بهینه سازی هسته (SYSCTL)"
-        echo -e "${C_YELLOW}3) ${C_WHITE}مدیریت و یافتن بهترین DNS"
-        echo -e "${C_YELLOW}4) ${C_WHITE}یافتن سریعترین مخزن APT"
-        echo -e "${C_YELLOW}5) ${C_WHITE}تست پینگ سرورهای DNS"
-        echo -e "${C_YELLOW}6) ${C_WHITE}پینگ خارج به داخل"
-        echo -e "${C_YELLOW}7) ${C_WHITE}پینگ داخل به خارج"
-        echo -e "${C_YELLOW}8) ${C_WHITE}بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}3) ${B_YELLOW}بهینه سازی بستر شبکه (پیشرفته)"
+        echo -e "${C_YELLOW}4) ${C_WHITE}مدیریت و یافتن بهترین DNS"
+        echo -e "${C_YELLOW}5) ${C_WHITE}یافتن سریعترین مخزن APT"
+        echo -e "${C_YELLOW}6) ${C_WHITE}تست پینگ سرورهای DNS"
+        echo -e "${C_YELLOW}7) ${C_WHITE}پینگ خارج به داخل"
+        echo -e "${C_YELLOW}8) ${C_WHITE}پینگ داخل به خارج"
+        echo -e "${C_YELLOW}9) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+        read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
             1) manage_tc_script ;;
             2) manage_sysctl ;;
-            3) manage_dns ;;
-            4) manage_mirror_test ;;
-            5) ping_test_ips ;;
-            6) ping_iran_hosts ;;
-            7) ping_external_hosts ;;
-            8) return ;;
+            3) run_as_bbr_optimization ;; # <<<--- INTEGRATION POINT
+            4) manage_dns ;;
+            5) manage_mirror_test ;;
+            6) ping_test_ips ;;
+            7) ping_iran_hosts ;;
+            8) ping_external_hosts ;;
+            9) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
@@ -1015,7 +1927,7 @@ manage_security() {
         echo -e "${C_YELLOW}9) ${C_WHITE}اسکن اندپوینت های وارپ"
         echo -e "${C_YELLOW}10) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+        read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
             1) manage_firewall ;;
             2) manage_ssh_root ;;
@@ -1043,7 +1955,7 @@ while true; do
   echo ""
   echo -e "   ${C_YELLOW}5) ${C_RED}خروج"
   echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
-  read -p "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" main_choice
+  read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" main_choice
 
   case $main_choice in
     1) manage_network_optimization ;;
