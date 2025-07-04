@@ -1,7 +1,7 @@
 <div dir="rtl">
 
 <p align="center">
-    <img src="https://img.shields.io/badge/Version-1.0-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/Version-3.0-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/Platform-Ubuntu_22.04+-orange.svg" alt="Platform">
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/github/stars/cy33r/IR-NET?style=social" alt="GitHub Stars">
