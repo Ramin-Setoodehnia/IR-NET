@@ -37,7 +37,7 @@
 
 **روش ۲ (جایگزین با CDN):**
 ```bash
-bash <(curl -sSL [https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh](https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh))
+bash <(curl -sSL https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh)
 ```
 ---
 
