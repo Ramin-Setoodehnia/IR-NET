@@ -1880,6 +1880,62 @@ manage_ip_health_check() {
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
+# --- Iperf3 Interactive Test Function ---
+run_iperf3_test() {
+    clear
+    echo -e "${B_CYAN}--- ابزار تست سرعت خودکار iperf3 ---${C_RESET}\n"
+    if ! command -v iperf3 &> /dev/null; then
+        echo -e "${C_YELLOW}ابزار iperf3 نصب نیست. در حال نصب...${C_RESET}"
+        apt-get update > /dev/null 2>&1
+        apt-get install -y iperf3
+        echo -e "${C_GREEN}iperf3 با موفقیت نصب شد.${C_RESET}\n"
+    fi
+
+    echo -e "${C_WHITE}لطفاً نقش این سرور را در تست مشخص کنید:${C_RESET}"
+    echo -e "${C_YELLOW}1) ${C_WHITE}سرور (مقصد تست - معمولاً سرور خارج)"
+    echo -e "${C_YELLOW}2) ${C_WHITE}کلاینت (شروع کننده تست - معمولاً سرور ایران)"
+    echo -e "${C_YELLOW}3) ${C_WHITE}بازگشت"
+    echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+    read -ep "$(echo -e "${B_MAGENTA}نقش این سرور چیست؟ ${C_RESET}")" iperf_choice
+
+    case $iperf_choice in
+        1)
+            local public_ip=$(curl -s -4 ifconfig.me || ip -4 addr show scope global | awk '{print $2}' | cut -d/ -f1 | head -n1)
+            clear
+            echo -e "${B_YELLOW}حالت سرور انتخاب شد.${C_RESET}"
+            echo -e "\n${C_WHITE}آدرس IP عمومی این سرور: ${C_GREEN}${public_ip}${C_RESET}"
+            echo -e "${C_WHITE}این آدرس را در سرور کلاینت (ایران) خود وارد کنید."
+            echo -e "\n${C_YELLOW}برای شروع تست، iperf3 در حالت سرور اجرا می‌شود..."
+            echo -e "برای توقف، کلیدهای ${C_RED}Ctrl+C${C_YELLOW} را فشار دهید.${C_RESET}"
+            echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+            iperf3 -s
+            ;;
+        2)
+            clear
+            echo -e "${B_YELLOW}حالت کلاینت انتخاب شد.${C_RESET}\n"
+            read -ep "$(echo -e "${B_MAGENTA}لطفاً آدرس IP سرور مقصد (سرور خارج) را وارد کنید: ${C_RESET}")" server_ip
+            if ! is_valid_ip "$server_ip"; then
+                echo -e "\n${C_RED}خطا: آدرس IP وارد شده معتبر نیست.${C_RESET}"
+            else
+                echo -e "\n${B_BLUE}--- شروع تست سرعت دانلود از ${server_ip} ---${C_RESET}"
+                iperf3 -c "$server_ip" -i 1 -t 10 -P 20
+                echo -e "\n${B_BLUE}--- شروع تست سرعت آپلود به ${server_ip} ---${C_RESET}"
+                iperf3 -c "$server_ip" -R -i 1 -t 10 -P 20
+                echo -e "\n${C_GREEN}--- تست به پایان رسید ---${C_RESET}"
+            fi
+            ;;
+        3)
+            return
+            ;;
+        *)
+            echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"
+            sleep 1
+            ;;
+    esac
+    read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+}
+
+
 # --- MAIN MENUS ---
 
 manage_network_optimization() {
@@ -1894,19 +1950,21 @@ manage_network_optimization() {
         echo -e "${C_YELLOW}6) ${C_WHITE}تست پینگ سرورهای DNS"
         echo -e "${C_YELLOW}7) ${C_WHITE}پینگ خارج به داخل"
         echo -e "${C_YELLOW}8) ${C_WHITE}پینگ داخل به خارج"
-        echo -e "${C_YELLOW}9) ${C_WHITE}بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}9) ${C_WHITE}تست سرعت خودکار ایران و خارج (iperf3)"
+        echo -e "${C_YELLOW}10) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
             1) manage_tc_script ;;
             2) manage_sysctl ;;
-            3) run_as_bbr_optimization ;; # <<<--- INTEGRATION POINT
+            3) run_as_bbr_optimization ;;
             4) manage_dns ;;
             5) manage_mirror_test ;;
             6) ping_test_ips ;;
             7) ping_iran_hosts ;;
             8) ping_external_hosts ;;
-            9) return ;;
+            9) run_iperf3_test ;;
+            10) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
