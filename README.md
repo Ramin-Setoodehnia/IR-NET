@@ -32,8 +32,7 @@
 
 **روش ۱ (اصلی):**
 ```bash
- bash <(curl -sSL https://cdn.jsdelivr.net/gh/cy33r/IR-NET/main/menu.sh)
-
+ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh?$(date +%s)")
 ```
 
 **روش ۲ (جایگزین با CDN):**
