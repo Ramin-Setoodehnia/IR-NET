@@ -1944,6 +1944,49 @@ manage_security() {
     done
 }
 
+manage_rat_hole_tunnel() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- تانل رت هول بهینه ایران ---${C_RESET}\n"
+        echo -e "${C_YELLOW}1)${C_WHITE} نصب تونل رت هول"
+        echo -e "${C_YELLOW}2)${C_WHITE} بهینه سازی برای ایران"
+        echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی اصلی"
+        echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+        read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" tunnel_choice
+
+        case $tunnel_choice in
+            1)
+                local rathole_script="/root/rathole_v2.sh"
+                if [ -f "$rathole_script" ]; then
+                    echo -e "\n${C_GREEN}در حال اجرای اسکریپت نصب تونل رت هول...${C_RESET}"
+                    bash "$rathole_script"
+                else
+                    echo -e "\n${C_RED}خطا: اسکریپت ${rathole_script} یافت نشد!${C_RESET}"
+                fi
+                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+                ;;
+            2)
+                local watchdog_script="/root/rathole_watchdog.sh"
+                if [ -f "$watchdog_script" ]; then
+                    echo -e "\n${C_GREEN}در حال اجرای اسکریپت بهینه سازی برای ایران...${C_RESET}"
+                    chmod +x "$watchdog_script"
+                    "$watchdog_script"
+                else
+                    echo -e "\n${C_RED}خطا: اسکریپت ${watchdog_script} یافت نشد!${C_RESET}"
+                fi
+                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+                ;;
+            3)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
 # --- SCRIPT MAIN LOOP ---
 while true; do
   clear
@@ -1952,8 +1995,9 @@ while true; do
   echo -e "   ${C_YELLOW}2) ${B_CYAN}امنیت و دسترسی"
   echo -e "   ${C_YELLOW}3) ${C_WHITE}آپدیت و نصب پکیج های لازم"
   echo -e "   ${C_YELLOW}4) ${B_GREEN}نصب آفلاین پنل TX-UI"
+  echo -e "   ${C_YELLOW}5) ${B_CYAN}تانل رت هول بهینه ایران"
   echo ""
-  echo -e "   ${C_YELLOW}5) ${C_RED}خروج"
+  echo -e "   ${C_YELLOW}6) ${C_RED}خروج"
   echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
   read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" main_choice
 
@@ -1962,13 +2006,14 @@ while true; do
     2) manage_security ;;
     3) install_core_packages ;;
     4) manage_xui_offline_install ;;
-    5)
+    5) manage_rat_hole_tunnel ;;
+    6)
       clear
       echo -e "\n${B_CYAN}خدا نگهدار!${C_RESET}\n"
       exit 0
       ;;
     *)
-      echo -e "\n${C_RED}گزینه نامعتبر است! لطفاً عددی بین 1 تا 5 وارد کنید.${C_RESET}"
+      echo -e "\n${C_RED}گزینه نامعتبر است! لطفاً عددی بین 1 تا 6 وارد کنید.${C_RESET}"
       read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
       ;;
   esac
