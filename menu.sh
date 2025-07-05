@@ -2002,52 +2002,85 @@ manage_security() {
     done
 }
 
+# START OF MODIFIED SECTION
 manage_rat_hole_tunnel() {
     while true; do
         clear
         echo -e "${B_CYAN}--- تانل رت هول بهینه ایران ---${C_RESET}\n"
-        echo -e "${C_YELLOW}1)${C_WHITE} نصب تونل رت هول"
-        echo -e "${C_YELLOW}2)${C_WHITE} بهینه سازی برای ایران"
-        echo -e "${C_YELLOW}3)${C_WHITE} راهنما"
-        echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}1)${C_WHITE} دانلود آنلاین رت هول (پیشنهادی)"
+        echo -e "${C_YELLOW}2)${C_WHITE} نصب تونل رت هول"
+        echo -e "${C_YELLOW}3)${C_WHITE} بهینه سازی برای ایران"
+        echo -e "${C_YELLOW}4)${C_WHITE} راهنما"
+        echo -e "${C_YELLOW}5)${C_WHITE} بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" tunnel_choice
 
         case $tunnel_choice in
             1)
+                echo -e "\n${C_YELLOW}در حال دانلود فایل های مورد نیاز از گیت هاب...${C_RESET}"
+                local rathole_v2_url="https://raw.githubusercontent.com/cy33r/IR-NET/refs/heads/main/rathole_v2.sh"
+                local watchdog_url="https://raw.githubusercontent.com/cy33r/IR-NET/refs/heads/main/rathole_watchdog.sh"
+                local success=true
+
+                echo "--> دانلود rathole_v2.sh..."
+                if ! curl -s -o /root/rathole_v2.sh "$rathole_v2_url"; then
+                    echo -e "${C_RED}خطا در دانلود rathole_v2.sh.${C_RESET}"
+                    success=false
+                fi
+
+                echo "--> دانلود rathole_watchdog.sh..."
+                if ! curl -s -o /root/rathole_watchdog.sh "$watchdog_url"; then
+                    echo -e "${C_RED}خطا در دانلود rathole_watchdog.sh.${C_RESET}"
+                    success=false
+                fi
+
+                if $success; then
+                    echo -e "\n${C_GREEN}فایل ها با موفقیت در /root/ دانلود شدند.${C_RESET}"
+                    chmod +x /root/rathole_v2.sh
+                    chmod +x /root/rathole_watchdog.sh
+                    echo -e "${C_YELLOW}دسترسی اجرایی به اسکریپت ها داده شد.${C_RESET}"
+                else
+                    echo -e "\n${C_RED}یک یا چند فایل دانلود نشد. لطفاً اتصال اینترنت خود را بررسی کرده یا به صورت دستی اقدام کنید.${C_RESET}"
+                fi
+                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+                ;;
+            2)
                 local rathole_script="/root/rathole_v2.sh"
                 if [ -f "$rathole_script" ]; then
                     echo -e "\n${C_GREEN}در حال اجرای اسکریپت نصب تونل رت هول...${C_RESET}"
                     bash "$rathole_script"
                 else
-                    echo -e "\n${C_RED}خطا: اسکریپت ${rathole_script} یافت نشد! لطفاً از منوی راهنما استفاده کنید.${C_RESET}"
-                fi
-                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
-                ;;
-            2)
-                local watchdog_script="/root/rathole_watchdog.sh"
-                if [ -f "$watchdog_script" ]; then
-                    echo -e "\n${C_GREEN}در حال اجرای اسکریپت بهینه سازی برای ایران...${C_RESET}"
-                    chmod +x "$watchdog_script"
-                    "$watchdog_script"
-                else
-                    echo -e "\n${C_RED}خطا: اسکریپت ${watchdog_script} یافت نشد! لطفاً از منوی راهنما استفاده کنید.${C_RESET}"
+                    echo -e "\n${C_RED}خطا: اسکریپت ${rathole_script} یافت نشد! لطفاً ابتدا از گزینه (1) برای دانلود استفاده کنید.${C_RESET}"
                 fi
                 read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
                 ;;
             3)
+                local watchdog_script="/root/rathole_watchdog.sh"
+                if [ -f "$watchdog_script" ]; then
+                    echo -e "\n${C_GREEN}در حال اجرای اسکریپت بهینه سازی برای ایران...${C_RESET}"
+                    chmod +x "$watchdog_script"
+                    bash "$watchdog_script"
+                else
+                    echo -e "\n${C_RED}خطا: اسکریپت ${watchdog_script} یافت نشد! لطفاً ابتدا از گزینه (1) برای دانلود استفاده کنید.${C_RESET}"
+                fi
+                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+                ;;
+            4)
                 clear
                 echo -e "${B_CYAN}--- راهنما ---${C_RESET}\n"
-                echo -e "${C_WHITE}دو فایل زیر را از صفحه گیت هاب ما دانلود کرده و در پوشه روت سرور خود آپلود نمایید:"
+                echo -e "${C_WHITE}برای نصب، ابتدا از گزینه ${C_YELLOW}(1) دانلود آنلاین رت هول${C_RESET}${C_WHITE} استفاده کنید."
+                echo -e "${C_WHITE}اسکریپت ها به صورت خودکار در پوشه /root دانلود و آماده اجرا می شوند."
+                echo ""
+                echo -e "${C_YELLOW}سپس اقدام به نصب تونل (گزینه 2) و بعد از آن بهینه ساز (گزینه 3) نمایید.${C_RESET}"
+                echo -e "${C_YELLOW}دقت داشته باشید که تا تونل را کامل راه اندازی نکنید، بهینه ساز با خطا مواجه خواهد شد.${C_RESET}"
+                echo ""
+                echo -e "${C_WHITE}در صورت مشکل در دانلود آنلاین، می توانید فایل های زیر را به صورت دستی دانلود کرده و در پوشه روت قرار دهید:"
                 echo -e "  - ${C_GREEN}rathole_v2.sh${C_RESET}"
                 echo -e "  - ${C_GREEN}rathole_watchdog.sh${C_RESET}"
-                echo ""
-                echo -e "${C_YELLOW}سپس مجدد اقدام به نصب تونل (گزینه 1) و بهینه ساز (گزینه 2) نمایید.${C_RESET}"
-                echo -e "${C_YELLOW}دقت داشته باشید که تا تونل را کامل راه اندازی نکنید، بهینه ساز با خطا مواجه خواهد شد.${C_RESET}"
                 echo -e "\n${C_WHITE}باتشکر${C_RESET}"
                 read -n 1 -s -r -p $'\nبرای بازگشت به منو، کلیدی را فشار دهید...'
                 ;;
-            4)
+            5)
                 return
                 ;;
             *)
@@ -2057,6 +2090,7 @@ manage_rat_hole_tunnel() {
         esac
     done
 }
+# END OF MODIFIED SECTION
 
 # --- SCRIPT MAIN LOOP ---
 while true; do
