@@ -1712,33 +1712,74 @@ manage_xui_offline_install() {
                 if [ ! -f "$xui_archive" ]; then
                     echo -e "\n${C_RED}خطا: فایل ${xui_archive} یافت نشد!${C_RESET}"
                     echo -e "${C_YELLOW}لطفاً ابتدا با استفاده از گزینه (2) راهنما، فایل را دانلود و در پوشه روت قرار دهید.${C_RESET}"
-                else
+                    read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+                    return
+                fi
+
+                # --- START: بخش جدید برای بررسی سازگاری ---
+                echo -e "\n${C_YELLOW}--- بررسی سازگاری سیستم ---${C_RESET}"
+                local os_version=$(lsb_release -ds 2>/dev/null || cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'=' -f2 | tr -d '"')
+                local glibc_version=$(ldd --version 2>/dev/null | awk '/ldd/{print $NF}' | head -n 1)
+                echo -e "${C_WHITE}نسخه سیستم عامل: ${C_GREEN}${os_version:-نامشخص}${C_RESET}"
+                echo -e "${C_WHITE}نسخه GLIBC: ${C_GREEN}${glibc_version:-نامشخص}${C_RESET}"
+
+                if [[ -n "$glibc_version" && "$(printf '%s\n' "2.32" "$glibc_version" | sort -V | head -n1)" != "2.32" ]]; then
+                     echo -e "\n${C_RED}** هشدار جدی **${C_RESET}"
+                     echo -e "${C_YELLOW}نسخه GLIBC سیستم شما (${glibc_version}) قدیمی است. این نسخه از پنل x-ui به احتمال زیاد روی سیستم شما کار نخواهد کرد و نیاز به GLIBC نسخه 2.32 یا بالاتر دارد (موجود در اوبونتو 22.04 و بالاتر).${C_RESET}"
+                     read -ep "$(echo -e "${B_MAGENTA}آیا با وجود این هشدار، می‌خواهید به نصب ادامه دهید؟ (y/n): ${C_RESET}")" confirm
+                     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+                         echo -e "\n${C_RED}نصب به دلیل عدم سازگاری لغو شد.${C_RESET}"
+                         read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+                         return
+                     fi
+                fi
+                # --- END: بخش جدید برای بررسی سازگاری ---
+
+                # اجرای دستورات در یک subshell با حالت strict برای جلوگیری از خطا
+                (
+                    set -e # اگر دستوری خطا داد، اجرا متوقف می‌شود
+
                     echo -e "\n${C_YELLOW}فایل یافت شد. در حال شروع مراحل نصب...${C_RESET}"
                     cd /root/
                     echo "--> در حال پاکسازی نصب‌های قبلی..."
-                    rm -rf x-ui/ /usr/local/x-ui/ /usr/bin/x-ui
+                    rm -rf x-ui/ /usr/local/x-ui/ /usr/bin/x-ui /etc/systemd/system/x-ui.service
+                    
                     echo "--> در حال استخراج فایل فشرده..."
                     tar zxvf x-ui-linux-amd64.tar.gz
+                    
                     echo "--> در حال تنظیم دسترسی‌ها..."
                     chmod +x x-ui/x-ui x-ui/bin/xray-linux-* x-ui/x-ui.sh
+                    
                     echo "--> در حال کپی کردن فایل‌های اجرایی..."
                     cp x-ui/x-ui.sh /usr/bin/x-ui
                     cp -f x-ui/x-ui.service /etc/systemd/system/
+                    
                     echo "--> در حال انتقال پوشه پنل..."
                     mv x-ui/ /usr/local/
+                    
                     echo "--> در حال فعال‌سازی سرویس..."
                     systemctl daemon-reload
                     systemctl enable x-ui
                     systemctl restart x-ui
-                    echo -e "\n${C_GREEN}✅ نصب پنل TX-UI با موفقیت به پایان رسید.${C_RESET}"
-                    echo -e "${C_YELLOW}--- وضعیت پنل ---${C_RESET}"
-                    sleep 2
-                    x-ui
-                    echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+                )
+
+                local exit_code=$?
+                if [ $exit_code -ne 0 ]; then
+                    echo -e "\n${C_RED}خطایی حیاتی در حین اجرای دستورات نصب رخ داد. لطفاً لاگ بالا را بررسی کنید.${C_RESET}"
+                else
+                    echo -e "\n${C_GREEN}✅ تمام دستورات نصب با موفقیت اجرا شدند.${C_RESET}"
                 fi
-                break
+
+                echo -e "${C_YELLOW}--- بررسی وضعیت نهایی سرویس پنل ---${C_RESET}"
+                sleep 2
+                systemctl status x-ui
+                echo -e "\n${C_YELLOW}اگر وضعیت سرویس 'active (running)' نیست، مشکل از ناسازگاری برنامه با سیستم عامل شماست.${C_RESET}"
+                echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+                read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+                return
                 ;;
             2)
+                # ... (بخش راهنما بدون تغییر باقی می‌ماند)
                 clear
                 echo -e "${B_CYAN}--- راهنمای نصب آفلاین TX-UI ---${C_RESET}\n"
                 echo -e "${C_WHITE}کاربر گرامی لطفا فایل زیر را از گیت هاب سازنده دانلود کرده و در پوشه روت سرور قرار بدهید تا اسکریپت بتواند به درستی نصب را"
@@ -1749,7 +1790,8 @@ manage_xui_offline_install() {
                 echo -e "${C_CYAN}https://github.com/AghayeCoder/tx-ui/releases${C_RESET}"
                 echo -e "\n${C_WHITE}باتشکر${C_RESET}"
                 echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-                break
+                read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+                return
                 ;;
             3)
                 return
@@ -1760,7 +1802,6 @@ manage_xui_offline_install() {
                 ;;
         esac
     done
-    read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
 scan_arvan_ranges() {
