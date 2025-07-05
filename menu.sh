@@ -43,6 +43,66 @@ show_banner() {
     echo ""
 }
 
+# --- System Status Header (REVISED AND FINAL) ---
+show_system_status_header() {
+    # Fetch local information
+    local hostname=$(hostname 2>/dev/null || echo "N/A")
+    local kernel_version=$(uname -r 2>/dev/null || echo "N/A")
+    local uptime_str=$(uptime -p 2>/dev/null | sed 's/up //')
+    [ -z "$uptime_str" ] && uptime_str="N/A"
+    local interface=$(ip route get 8.8.8.8 2>/dev/null | awk --sandbox '/dev/ {print $5; exit}')
+    [ -z "$interface" ] && interface="N/A"
+
+    # Fetch DNS servers using the correct method and format it to a single line
+    if command -v resolvectl &>/dev/null; then
+        local dns_servers=$(resolvectl status | awk '/DNS Servers:/{ $1=""; $2=""; print $0 }' | head -n 1 | xargs)
+    else
+        local dns_servers=$(grep '^nameserver' /etc/resolv.conf | awk '{print $2}' | tr '\n' ' ')
+    fi
+	[ -z "$dns_servers" ] && dns_servers="N/A"
+
+    # Set default values for geo info
+    local location="N/A"
+    local datacenter="N/A"
+    local internet_status="${C_RED}✖ Disconnected${C_RESET}"
+
+    # Check internet and fetch GeoIP information using the user-provided working API
+    local public_ip=$(curl -s -4 --max-time 5 ip.sb)
+    if [ -n "$public_ip" ]; then
+        internet_status="${C_GREEN}✔ Connected${C_RESET}"
+        
+        # Use the new API: ipwhois.app
+        local geo_info=$(curl -s --max-time 5 "http://ipwhois.app/json/$public_ip")
+        
+        # Check if the response is valid JSON and contains our keys
+        if [[ -n "$geo_info" && "$geo_info" == *"country"* && "$geo_info" == *"isp"* ]]; then
+            if command -v jq &>/dev/null; then
+                location=$(echo "$geo_info" | jq -r .country)
+                datacenter=$(echo "$geo_info" | jq -r .isp)
+            else # Fallback if jq is not installed
+                location=$(echo "$geo_info" | grep '"country"' | awk -F'"' '{print $4}')
+                datacenter=$(echo "$geo_info" | grep '"isp"' | awk -F'"' '{print $4}')
+            fi
+        fi
+    fi
+    [ -z "$location" ] && location="N/A"
+    [ -z "$datacenter" ] && datacenter="N/A"
+
+    # Print the box with truncation for long strings to prevent breaking the layout
+    printf "${B_BLUE}╔══════════════════════════════════════════════════════════════╗${C_RESET}\n"
+    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35s ${B_BLUE}║${C_RESET}\n" "HOSTNAME" "$hostname"
+    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35s ${B_BLUE}║${C_RESET}\n" "KERNEL VERSION" "$kernel_version"
+    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35s ${B_BLUE}║${C_RESET}\n" "UPTIME" "$uptime_str"
+    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35s ${B_BLUE}║${C_RESET}\n" "DEFAULT INTERFACE" "$interface"
+    printf "${B_BLUE}║ ${C_WHITE}%-19s: %-45b ${B_BLUE}║${C_RESET}\n" "INTERNET" "$internet_status"
+    printf "${B_BLUE}╟──────────────────────────────────────────────────────────╢${C_RESET}\n"
+    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35.35s ${B_BLUE}║${C_RESET}\n" "DNS SERVERS" "$dns_servers"
+    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35.35s ${B_BLUE}║${C_RESET}\n" "LOCATION" "$location"
+    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35.35s ${B_BLUE}║${C_RESET}\n" "DATACENTER" "$datacenter"
+    printf "${B_BLUE}╚══════════════════════════════════════════════════════════════╝${C_RESET}\n"
+}
+
+
 # --- HELPER FUNCTIONS (From menu.sh) ---
 backup_file() {
   local file=$1
@@ -107,10 +167,10 @@ init_environment() {
     chmod 700 "$BACKUP_DIR" 2>/dev/null
     : >> "$LOG_FILE"
     chmod 640 "$LOG_FILE" 2>/dev/null
-    
+
     # --- FIX 1: Removed 'EXIT' from trap to prevent script termination ---
     trap 'handle_interrupt' INT TERM
-    
+
     PRIMARY_INTERFACE=$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')
     if ! check_color_support; then
         AS_RED="" AS_GREEN="" AS_YELLOW="" AS_BLUE="" AS_CYAN="" AS_NC=""
@@ -1147,11 +1207,8 @@ manage_ssh_root() {
   read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
   case $choice in
     1)
-      # --- START: بخش اصلاح شده ---
       echo -e "\n${C_YELLOW}**هشدار:** فعال کردن ورود روت با رمز عبور، یک ریسک امنیتی است.${C_RESET}"
       read -ep "$(echo -e "${B_MAGENTA}آیا برای ادامه مطمئن هستید؟ (y/n) ${C_RESET}")" confirm
-      # --- END: بخش اصلاح شده ---
-      
       if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
           echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
       else
@@ -1748,7 +1805,6 @@ manage_xui_offline_install() {
                 else
                     echo -e "\n${C_RED}خطا! نصب ناموفق بود یا سرویس اجرا نشد.${C_RESET}"
                     echo -e "${C_YELLOW}خروجی وضعیت سرویس برای خطایابی:${C_RESET}"
-                    # استفاده از --no-pager برای جلوگیری از "گیر کردن"
                     systemctl status x-ui --no-pager
                     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
                 fi
@@ -1774,6 +1830,7 @@ manage_xui_offline_install() {
         esac
     done
 }
+
 
 scan_arvan_ranges() {
     clear
@@ -2014,7 +2071,6 @@ manage_security() {
     done
 }
 
-# START OF MODIFIED SECTION
 manage_rat_hole_tunnel() {
     while true; do
         clear
@@ -2102,12 +2158,13 @@ manage_rat_hole_tunnel() {
         esac
     done
 }
-# END OF MODIFIED SECTION
 
 # --- SCRIPT MAIN LOOP ---
 while true; do
   clear
   show_banner
+  show_system_status_header
+
   echo -e "   ${C_YELLOW}1) ${B_CYAN}بهینه سازی شبکه و اتصال"
   echo -e "   ${C_YELLOW}2) ${B_CYAN}امنیت و دسترسی"
   echo -e "   ${C_YELLOW}3) ${C_WHITE}آپدیت و نصب پکیج های لازم"
