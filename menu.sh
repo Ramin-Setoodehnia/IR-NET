@@ -1147,7 +1147,11 @@ manage_ssh_root() {
   read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
   case $choice in
     1)
-      read -ep "$(echo -e "${C_YELLOW}**هشدار:** فعال کردن ورود روت ریسک امنیتی دارد. آیا مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
+      # --- START: بخش اصلاح شده ---
+      echo -e "\n${C_YELLOW}**هشدار:** فعال کردن ورود روت با رمز عبور، یک ریسک امنیتی است.${C_RESET}"
+      read -ep "$(echo -e "${B_MAGENTA}آیا برای ادامه مطمئن هستید؟ (y/n) ${C_RESET}")" confirm
+      # --- END: بخش اصلاح شده ---
+      
       if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
           echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
       else
@@ -1711,85 +1715,52 @@ manage_xui_offline_install() {
                 local xui_archive="/root/x-ui-linux-amd64.tar.gz"
                 if [ ! -f "$xui_archive" ]; then
                     echo -e "\n${C_RED}خطا: فایل ${xui_archive} یافت نشد!${C_RESET}"
-                    echo -e "${C_YELLOW}لطفاً ابتدا با استفاده از گزینه (2) راهنما، فایل را دانلود و در پوشه روت قرار دهید.${C_RESET}"
                     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
                     return
                 fi
-
-                # --- START: بخش جدید برای بررسی سازگاری ---
-                echo -e "\n${C_YELLOW}--- بررسی سازگاری سیستم ---${C_RESET}"
-                local os_version=$(lsb_release -ds 2>/dev/null || cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'=' -f2 | tr -d '"')
-                local glibc_version=$(ldd --version 2>/dev/null | awk '/ldd/{print $NF}' | head -n 1)
-                echo -e "${C_WHITE}نسخه سیستم عامل: ${C_GREEN}${os_version:-نامشخص}${C_RESET}"
-                echo -e "${C_WHITE}نسخه GLIBC: ${C_GREEN}${glibc_version:-نامشخص}${C_RESET}"
-
-                if [[ -n "$glibc_version" && "$(printf '%s\n' "2.32" "$glibc_version" | sort -V | head -n1)" != "2.32" ]]; then
-                     echo -e "\n${C_RED}** هشدار جدی **${C_RESET}"
-                     echo -e "${C_YELLOW}نسخه GLIBC سیستم شما (${glibc_version}) قدیمی است. این نسخه از پنل x-ui به احتمال زیاد روی سیستم شما کار نخواهد کرد و نیاز به GLIBC نسخه 2.32 یا بالاتر دارد (موجود در اوبونتو 22.04 و بالاتر).${C_RESET}"
-                     read -ep "$(echo -e "${B_MAGENTA}آیا با وجود این هشدار، می‌خواهید به نصب ادامه دهید؟ (y/n): ${C_RESET}")" confirm
-                     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-                         echo -e "\n${C_RED}نصب به دلیل عدم سازگاری لغو شد.${C_RESET}"
-                         read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
-                         return
-                     fi
-                fi
-                # --- END: بخش جدید برای بررسی سازگاری ---
-
-                # اجرای دستورات در یک subshell با حالت strict برای جلوگیری از خطا
+                
                 (
-                    set -e # اگر دستوری خطا داد، اجرا متوقف می‌شود
-
-                    echo -e "\n${C_YELLOW}فایل یافت شد. در حال شروع مراحل نصب...${C_RESET}"
+                    set -e
+                    echo -e "\n${C_YELLOW}در حال آماده سازی و نصب پنل...${C_RESET}"
                     cd /root/
-                    echo "--> در حال پاکسازی نصب‌های قبلی..."
-                    rm -rf x-ui/ /usr/local/x-ui/ /usr/bin/x-ui /etc/systemd/system/x-ui.service
-                    
-                    echo "--> در حال استخراج فایل فشرده..."
-                    tar zxvf x-ui-linux-amd64.tar.gz
-                    
-                    echo "--> در حال تنظیم دسترسی‌ها..."
+                    rm -rf x-ui/ /usr/local/x-ui/ /usr/bin/x-ui /etc/systemd/system/x-ui.service &>/dev/null
+                    tar zxvf x-ui-linux-amd64.tar.gz &>/dev/null
                     chmod +x x-ui/x-ui x-ui/bin/xray-linux-* x-ui/x-ui.sh
-                    
-                    echo "--> در حال کپی کردن فایل‌های اجرایی..."
                     cp x-ui/x-ui.sh /usr/bin/x-ui
                     cp -f x-ui/x-ui.service /etc/systemd/system/
-                    
-                    echo "--> در حال انتقال پوشه پنل..."
                     mv x-ui/ /usr/local/
-                    
-                    echo "--> در حال فعال‌سازی سرویس..."
                     systemctl daemon-reload
-                    systemctl enable x-ui
+                    systemctl enable x-ui &>/dev/null
                     systemctl restart x-ui
                 )
+                local install_exit_code=$?
 
-                local exit_code=$?
-                if [ $exit_code -ne 0 ]; then
-                    echo -e "\n${C_RED}خطایی حیاتی در حین اجرای دستورات نصب رخ داد. لطفاً لاگ بالا را بررسی کنید.${C_RESET}"
-                else
-                    echo -e "\n${C_GREEN}✅ تمام دستورات نصب با موفقیت اجرا شدند.${C_RESET}"
-                fi
-
-                echo -e "${C_YELLOW}--- بررسی وضعیت نهایی سرویس پنل ---${C_RESET}"
                 sleep 2
-                systemctl status x-ui
-                echo -e "\n${C_YELLOW}اگر وضعیت سرویس 'active (running)' نیست، مشکل از ناسازگاری برنامه با سیستم عامل شماست.${C_RESET}"
-                echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-                read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+
+                if [ $install_exit_code -eq 0 ] && systemctl is-active --quiet x-ui; then
+                    echo -e "\n${C_GREEN}✅ پنل با موفقیت نصب و اجرا شد!${C_RESET}"
+                    echo -e "${C_YELLOW}در حال ورود به منوی مدیریت پنل...${C_RESET}"
+                    sleep 2
+                    clear
+                    x-ui
+                    echo -e "\n${B_CYAN}از پنل خارج شدید. بازگشت به منوی اصلی...${C_RESET}"
+                    sleep 2
+                else
+                    echo -e "\n${C_RED}خطا! نصب ناموفق بود یا سرویس اجرا نشد.${C_RESET}"
+                    echo -e "${C_YELLOW}خروجی وضعیت سرویس برای خطایابی:${C_RESET}"
+                    # استفاده از --no-pager برای جلوگیری از "گیر کردن"
+                    systemctl status x-ui --no-pager
+                    read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+                fi
                 return
                 ;;
             2)
-                # ... (بخش راهنما بدون تغییر باقی می‌ماند)
                 clear
                 echo -e "${B_CYAN}--- راهنمای نصب آفلاین TX-UI ---${C_RESET}\n"
-                echo -e "${C_WHITE}کاربر گرامی لطفا فایل زیر را از گیت هاب سازنده دانلود کرده و در پوشه روت سرور قرار بدهید تا اسکریپت بتواند به درستی نصب را"
-                echo -e "انجام بدهد و بعد از نصب با زدن آدرس آی پی خود به همراه پورت ${C_YELLOW}2053${C_RESET}${C_WHITE} و نام کاربری ${C_YELLOW}admin${C_RESET}${C_WHITE} و پسوورد ${C_YELLOW}admin${C_RESET}${C_WHITE} به پنل خود ورود کنید."
-                echo -e "و دقت داشته باشید که حتما یک پچ برای مسیر انتخاب کنید و رمز عبور دیفالت را نیز تغییر بدهید تا پنل شما شناسایی و هک نشود."
-                echo -e "\n${C_YELLOW}نام فایلی که باید دانلود کنید :${C_RESET} ${C_GREEN}x-ui-linux-amd64.tar.gz${C_RESET}"
+                echo -e "${C_WHITE}برای نصب، فایل ${C_GREEN}x-ui-linux-amd64.tar.gz${C_RESET}${C_WHITE} را از گیت‌هاب پروژه دانلود و در پوشه /root قرار دهید."
+                echo -e "پس از نصب، با آی‌پی سرور و پورت ${C_YELLOW}2053${C_RESET} وارد پنل شوید (نام کاربری و رمز: ${C_YELLOW}admin${C_RESET})."
                 echo -e "\n${C_YELLOW}آدرس گیت هاب پروژه :${C_RESET}"
                 echo -e "${C_CYAN}https://github.com/AghayeCoder/tx-ui/releases${C_RESET}"
-                echo -e "\n${C_WHITE}باتشکر${C_RESET}"
-                echo -e "${B_BLUE}-----------------------------------${C_RESET}"
                 read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
                 return
                 ;;
