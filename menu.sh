@@ -2071,13 +2071,47 @@ manage_security() {
     done
 }
 
+# +++ START: NEW FUNCTION FOR RATHOLE OPTIMIZER +++
+manage_rathole_optimizer_monitoring() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- بهینه ساز و مونیتورینگ رت هول ---${C_RESET}\n"
+        echo -e "${C_YELLOW}1)${C_WHITE} نسخه چندسروره"
+        echo -e "${C_YELLOW}2)${C_WHITE} نسخه تک‌سروره"
+        echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی قبلی"
+        echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+        read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+
+        case $choice in
+            1)
+                echo -e "\n${C_YELLOW}در حال اجرای اسکریپت نسخه چندسروره...${C_RESET}"
+                bash <(curl -s https://raw.githubusercontent.com/naseh42/tunnel_watchdog/main/tunnel_watchdog.sh)
+                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+                ;;
+            2)
+                echo -e "\n${C_YELLOW}در حال اجرای اسکریپت نسخه تک‌سروره...${C_RESET}"
+                bash <(curl -s https://raw.githubusercontent.com/naseh42/tunnel_watchdog/main/rathole_watchdog.sh)
+                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+                ;;
+            3)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+# +++ END: NEW FUNCTION FOR RATHOLE OPTIMIZER +++
+
 manage_rat_hole_tunnel() {
     while true; do
         clear
         echo -e "${B_CYAN}--- تانل رت هول بهینه ایران ---${C_RESET}\n"
         echo -e "${C_YELLOW}1)${C_WHITE} دانلود آنلاین رت هول (پیشنهادی)"
         echo -e "${C_YELLOW}2)${C_WHITE} نصب تونل رت هول"
-        echo -e "${C_YELLOW}3)${C_WHITE} بهینه سازی برای ایران"
+        echo -e "${C_YELLOW}3)${C_WHITE} بهینه ساز و مونیتورینگ رت هول" # MODIFIED
         echo -e "${C_YELLOW}4)${C_WHITE} راهنما"
         echo -e "${C_YELLOW}5)${C_WHITE} بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
@@ -2123,15 +2157,8 @@ manage_rat_hole_tunnel() {
                 read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
                 ;;
             3)
-                local watchdog_script="/root/rathole_watchdog.sh"
-                if [ -f "$watchdog_script" ]; then
-                    echo -e "\n${C_GREEN}در حال اجرای اسکریپت بهینه سازی برای ایران...${C_RESET}"
-                    chmod +x "$watchdog_script"
-                    bash "$watchdog_script"
-                else
-                    echo -e "\n${C_RED}خطا: اسکریپت ${watchdog_script} یافت نشد! لطفاً ابتدا از گزینه (1) برای دانلود استفاده کنید.${C_RESET}"
-                fi
-                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+                # MODIFIED: Calls the new submenu
+                manage_rathole_optimizer_monitoring
                 ;;
             4)
                 clear
