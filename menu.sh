@@ -53,40 +53,42 @@ show_system_status_header() {
     local interface=$(ip route get 8.8.8.8 2>/dev/null | awk --sandbox '/dev/ {print $5; exit}')
     [ -z "$interface" ] && interface="N/A"
 
-    # Fetch DNS servers using the correct method and format it to a single line
-    if command -v resolvectl &>/dev/null; then
-        local dns_servers=$(resolvectl status | awk '/DNS Servers:/{ $1=""; $2=""; print $0 }' | head -n 1 | xargs)
-    else
-        local dns_servers=$(grep '^nameserver' /etc/resolv.conf | awk '{print $2}' | tr '\n' ' ')
-    fi
-	[ -z "$dns_servers" ] && dns_servers="N/A"
-
     # Set default values for geo info
     local location="N/A"
     local datacenter="N/A"
+    local dns_servers="N/A"
     local internet_status="${C_RED}✖ Disconnected${C_RESET}"
 
-    # Check internet and fetch GeoIP information using the user-provided working API
-    local public_ip=$(curl -s -4 --max-time 5 ip.sb)
-    if [ -n "$public_ip" ]; then
+    # --- NEW: Quick Internet Check to prevent slow loading ---
+    if ping -c 1 -W 2 8.8.8.8 &>/dev/null; then
         internet_status="${C_GREEN}✔ Connected${C_RESET}"
         
-        # Use the new API: ipwhois.app
-        local geo_info=$(curl -s --max-time 5 "http://ipwhois.app/json/$public_ip")
-        
-        # Check if the response is valid JSON and contains our keys
-        if [[ -n "$geo_info" && "$geo_info" == *"country"* && "$geo_info" == *"isp"* ]]; then
-            if command -v jq &>/dev/null; then
-                location=$(echo "$geo_info" | jq -r .country)
-                datacenter=$(echo "$geo_info" | jq -r .isp)
-            else # Fallback if jq is not installed
-                location=$(echo "$geo_info" | grep '"country"' | awk -F'"' '{print $4}')
-                datacenter=$(echo "$geo_info" | grep '"isp"' | awk -F'"' '{print $4}')
+        # Fetch DNS servers using the correct method
+        if command -v resolvectl &>/dev/null; then
+            dns_servers=$(resolvectl status | awk '/DNS Servers:/{ $1=""; $2=""; print $0 }' | head -n 1 | xargs)
+        else
+            dns_servers=$(grep '^nameserver' /etc/resolv.conf | awk '{print $2}' | tr '\n' ' ')
+        fi
+        [ -z "$dns_servers" ] && dns_servers="N/A"
+
+        # Fetch GeoIP information
+        local public_ip=$(curl -s -4 --max-time 5 ip.sb)
+        if [ -n "$public_ip" ]; then
+            local geo_info=$(curl -s --max-time 5 "http://ipwhois.app/json/$public_ip")
+            if [[ -n "$geo_info" && "$geo_info" == *"country"* && "$geo_info" == *"isp"* ]]; then
+                if command -v jq &>/dev/null; then
+                    location=$(echo "$geo_info" | jq -r .country)
+                    datacenter=$(echo "$geo_info" | jq -r .isp)
+                else # Fallback if jq is not installed
+                    location=$(echo "$geo_info" | grep '"country"' | awk -F'"' '{print $4}')
+                    datacenter=$(echo "$geo_info" | grep '"isp"' | awk -F'"' '{print $4}')
+                fi
             fi
         fi
+        [ -z "$location" ] && location="N/A"
+        [ -z "$datacenter" ] && datacenter="N/A"
     fi
-    [ -z "$location" ] && location="N/A"
-    [ -z "$datacenter" ] && datacenter="N/A"
+    # If ping fails, the default "N/A" and "Disconnected" values are used, and the function quickly proceeds to printing.
 
     # Print the box with truncation for long strings to prevent breaking the layout
     printf "${B_BLUE}╔══════════════════════════════════════════════════════════════╗${C_RESET}\n"
@@ -168,7 +170,6 @@ init_environment() {
     : >> "$LOG_FILE"
     chmod 640 "$LOG_FILE" 2>/dev/null
 
-    # --- FIX 1: Removed 'EXIT' from trap to prevent script termination ---
     trap 'handle_interrupt' INT TERM
 
     PRIMARY_INTERFACE=$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')
@@ -1328,20 +1329,24 @@ EOF
   read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
+# --- REVISED AND IMPROVED ---
 manage_sysctl() {
   clear
-  local sysctl_conf="/etc/sysctl.conf"
+  # Using a file in sysctl.d is the modern/correct way
+  local sysctl_conf_file="/etc/sysctl.d/98-full-optimization.conf"
+  
   echo -e "${B_CYAN}--- بهینه سازی هسته (SYSCTL) ---${C_RESET}\n"
-  echo -e "${C_YELLOW}1)${C_WHITE} اعمال کانفیگ کامل BBR (پیشنهادی)"
-  echo -e "${C_YELLOW}2)${C_WHITE} اعمال کانفیگ Cubic/Codel (اینترنت ناپایدار)"
-  echo -e "${C_YELLOW}3)${C_WHITE} بازگردانی به فایل پشتیبان"
-  echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی بهینه‌سازی"
+  echo -e "${C_YELLOW}1)${C_WHITE} اعمال کانفیگ کامل بهینه‌سازی (پیشنهادی)"
+  echo -e "${C_YELLOW}2)${C_WHITE} بازگردانی به حالت پیش‌فرض (حذف کانفیگ)"
+  echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی بهینه‌سازی"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
   read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+  
   case $choice in
     1)
-      backup_file $sysctl_conf
-      cat > $sysctl_conf << 'EOF'
+      echo -e "\n${C_YELLOW}در حال اعمال کانفیگ بهینه سازی در فایل ${sysctl_conf_file}...${C_RESET}"
+      cat > "$sysctl_conf_file" << 'EOF'
+# Full System Optimization by Script
 net.core.rmem_max = 134217728
 net.core.wmem_max = 134217728
 net.core.rmem_default = 16777216
@@ -1351,18 +1356,11 @@ net.core.netdev_budget = 600
 net.core.netdev_budget_usecs = 8000
 net.core.somaxconn = 32768
 net.core.dev_weight = 128
-net.core.dev_weight_rx_bias = 1
-net.core.dev_weight_tx_bias = 1
 net.core.bpf_jit_enable = 1
-net.core.bpf_jit_kallsyms = 1
-net.core.bpf_jit_harden = 0
-net.core.flow_limit_cpu_bitmap = 255
-net.core.flow_limit_table_len = 8192
 net.ipv4.tcp_rmem = 8192 131072 134217728
 net.ipv4.tcp_wmem = 8192 131072 134217728
 net.ipv4.tcp_congestion_control = bbr
 net.ipv4.tcp_fastopen = 3
-net.ipv4.tcp_fastopen_blackhole_timeout_sec = 0
 net.ipv4.tcp_fin_timeout = 10
 net.ipv4.tcp_keepalive_time = 600
 net.ipv4.tcp_keepalive_intvl = 30
@@ -1370,66 +1368,18 @@ net.ipv4.tcp_keepalive_probes = 3
 net.ipv4.tcp_max_syn_backlog = 8192
 net.ipv4.tcp_max_tw_buckets = 2000000
 net.ipv4.tcp_tw_reuse = 1
-net.ipv4.tcp_tw_reuse_delay = 100
 net.ipv4.tcp_window_scaling = 1
 net.ipv4.tcp_timestamps = 1
 net.ipv4.tcp_sack = 1
-net.ipv4.tcp_dsack = 1
-net.ipv4.tcp_fack = 1
 net.ipv4.tcp_ecn = 2
-net.ipv4.tcp_syn_retries = 3
-net.ipv4.tcp_synack_retries = 3
-net.ipv4.tcp_retries1 = 3
-net.ipv4.tcp_retries2 = 8
-net.ipv4.tcp_orphan_retries = 1
 net.ipv4.tcp_syncookies = 1
-net.ipv4.tcp_rfc1337 = 1
 net.ipv4.tcp_slow_start_after_idle = 0
 net.ipv4.tcp_no_metrics_save = 1
 net.ipv4.tcp_moderate_rcvbuf = 1
 net.ipv4.tcp_mtu_probing = 2
-net.ipv4.tcp_base_mss = 1024
-net.ipv4.tcp_min_snd_mss = 48
-net.ipv4.tcp_mtu_probe_floor = 48
-net.ipv4.tcp_probe_threshold = 8
-net.ipv4.tcp_probe_interval = 600
-net.ipv4.tcp_adv_win_scale = 2
-net.ipv4.tcp_app_win = 31
-net.ipv4.tcp_tso_win_divisor = 8
-net.ipv4.tcp_limit_output_bytes = 1048576
-net.ipv4.tcp_challenge_ack_limit = 1000
-net.ipv4.tcp_autocorking = 1
-net.ipv4.tcp_min_tso_segs = 8
-net.ipv4.tcp_tso_rtt_log = 9
-net.ipv4.tcp_pacing_ss_ratio = 120
-net.ipv4.tcp_pacing_ca_ratio = 110
-net.ipv4.tcp_reordering = 3
-net.ipv4.tcp_max_reordering = 32
-net.ipv4.tcp_recovery = 1
-net.ipv4.tcp_early_retrans = 3
-net.ipv4.tcp_frto = 2
-net.ipv4.tcp_thin_linear_timeouts = 1
-net.ipv4.tcp_min_rtt_wlen = 300
-net.ipv4.tcp_comp_sack_delay_ns = 500000
-net.ipv4.tcp_comp_sack_slack_ns = 50000
-net.ipv4.tcp_comp_sack_nr = 44
-net.ipv4.tcp_notsent_lowat = 131072
-net.ipv4.tcp_invalid_ratelimit = 250
-net.ipv4.tcp_reflect_tos = 1
-net.ipv4.tcp_abort_on_overflow = 0
-net.ipv4.tcp_fwmark_accept = 1
-net.ipv4.tcp_l3mdev_accept = 1
-net.ipv4.tcp_migrate_req = 1
-net.ipv4.tcp_syn_linear_timeouts = 4
-net.ipv4.tcp_shrink_window = 0
-net.ipv4.tcp_workaround_signed_windows = 0
 net.ipv4.ip_forward = 1
 net.ipv4.ip_default_ttl = 64
 net.ipv4.ip_no_pmtu_disc = 0
-net.ipv4.ip_forward_use_pmtu = 1
-net.ipv4.fwmark_reflect = 1
-net.ipv4.fib_multipath_use_neigh = 1
-net.ipv4.fib_multipath_hash_policy = 1
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.accept_source_route = 0
@@ -1441,77 +1391,41 @@ net.ipv4.conf.default.secure_redirects = 0
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
 net.ipv4.conf.all.log_martians = 0
-net.ipv4.conf.default.log_martians = 0
-net.ipv4.icmp_echo_ignore_all = 0
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.icmp_ignore_bogus_error_responses = 1
-net.ipv4.icmp_ratelimit = 100
-net.ipv4.icmp_ratemask = 6168
 net.netfilter.nf_conntrack_max = 1048576
 net.netfilter.nf_conntrack_tcp_timeout_established = 432000
-net.netfilter.nf_conntrack_tcp_timeout_time_wait = 60
-net.netfilter.nf_conntrack_tcp_timeout_close_wait = 30
-net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 60
-net.netfilter.nf_conntrack_tcp_timeout_syn_sent = 60
-net.netfilter.nf_conntrack_tcp_timeout_syn_recv = 30
-net.netfilter.nf_conntrack_udp_timeout = 30
-net.netfilter.nf_conntrack_udp_timeout_stream = 120
-net.netfilter.nf_conntrack_icmp_timeout = 30
-net.netfilter.nf_conntrack_generic_timeout = 120
-net.netfilter.nf_conntrack_buckets = 262144
-net.netfilter.nf_conntrack_checksum = 0
-net.netfilter.nf_conntrack_tcp_be_liberal = 1
-net.netfilter.nf_conntrack_tcp_loose = 1
 vm.swappiness = 10
 vm.dirty_ratio = 10
 vm.dirty_background_ratio = 5
-vm.dirty_expire_centisecs = 1500
-vm.dirty_writeback_centisecs = 500
 vm.vfs_cache_pressure = 50
-vm.min_free_kbytes = 131072
-vm.page_cluster = 0
-vm.overcommit_memory = 1
-vm.overcommit_ratio = 80
-vm.max_map_count = 262144
-vm.mmap_min_addr = 65536
-vm.zone_reclaim_mode = 0
-vm.stat_interval = 1
 fs.file-max = 2097152
 fs.nr_open = 2097152
-fs.inotify.max_user_watches = 524288
-fs.inotify.max_user_instances = 256
-fs.inotify.max_queued_events = 32768
-fs.aio-max-nr = 1048576
-fs.pipe-max-size = 4194304
 net.core.default_qdisc = fq
-net.unix.max_dgram_qlen = 512
 EOF
-      sysctl -p
-      echo -e "\n${C_GREEN}کانفیگ کامل Sysctl با موفقیت اعمال شد.${C_RESET}"
-      ;;
-    2)
-      backup_file $sysctl_conf
-      touch $sysctl_conf
-      sed -i '/net.core.default_qdisc/d' $sysctl_conf
-      sed -i '/net.ipv4.tcp_congestion_control/d' $sysctl_conf
-      echo "net.core.default_qdisc=fq_codel" >> $sysctl_conf
-      echo "net.ipv4.tcp_congestion_control=cubic" >> $sysctl_conf
-      sysctl -p
-      echo -e "\n${C_GREEN}کانفیگ Cubic/Codel با موفقیت اعمال شد.${C_RESET}"
-      ;;
-    3)
-      if [ -f "${sysctl_conf}.bak" ]; then
-          mv "${sysctl_conf}.bak" "$sysctl_conf"
-          sysctl -p
-          echo -e "\n${C_GREEN}فایل sysctl.conf به نسخه پشتیبان بازگردانده شد.${C_RESET}"
+      # Apply the changes
+      if sysctl -p "$sysctl_conf_file"; then
+          echo -e "\n${C_GREEN}کانفیگ کامل Sysctl با موفقیت اعمال شد.${C_RESET}"
       else
-          echo -e "\n${C_RED}هیچ فایل پشتیبانی (${sysctl_conf}.bak) یافت نشد!${C_RESET}"
+          echo -e "\n${C_RED}خطا در اعمال تنظیمات Sysctl.${C_RESET}"
       fi
       ;;
-    4) return ;;
+    2)
+      if [ -f "$sysctl_conf_file" ]; then
+          rm -f "$sysctl_conf_file"
+          echo -e "\n${C_GREEN}فایل کانفیگ ${sysctl_conf_file} حذف شد.${C_RESET}"
+          echo -e "${C_YELLOW}در حال بارگذاری مجدد قوانین Sysctl برای بازگشت به حالت پیش‌فرض...${C_RESET}"
+          # Reload all sysctl configurations to revert the changes
+          sysctl --system
+          echo -e "\n${C_GREEN}بازگردانی با موفقیت انجام شد.${C_RESET}"
+      else
+          echo -e "\n${C_YELLOW}هیچ فایل کانفیگ بهینه‌سازی برای حذف یافت نشد.${C_RESET}"
+      fi
+      ;;
+    3) return ;;
     *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
   esac
-  read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+  read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
 }
 
 manage_mirror_test() {
@@ -1599,21 +1513,21 @@ ping_iran_hosts() {
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
+# --- REVISED AND IMPROVED ---
 port_scanner_menu() {
     clear
     echo -e "${B_CYAN}--- اسکنر پورت ---${C_RESET}\n"
-    echo -e "${C_YELLOW}1)${C_WHITE} نصب ابزارهای مورد نیاز (hping3, nmap)"
-    echo -e "${C_YELLOW}2)${C_WHITE} اسکن سریع با nmap (پیشنهادی)"
-    echo -e "${C_YELLOW}3)${C_WHITE} اسکن آهسته با hping3"
-    echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی امنیت"
+    echo -e "${C_YELLOW}1)${C_WHITE} نصب ابزار مورد نیاز (nmap)"
+    echo -e "${C_YELLOW}2)${C_WHITE} اسکن سریع پورت‌های باز با nmap (پیشنهادی)"
+    echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
     case $choice in
         1)
-            echo -e "\n${C_YELLOW}در حال نصب hping3 و nmap...${C_RESET}"
+            echo -e "\n${C_YELLOW}در حال نصب nmap...${C_RESET}"
             apt-get update
-            apt-get install -y hping3 nmap
-            echo -e "\n${C_GREEN}ابزارها با موفقیت نصب شدند.${C_RESET}"
+            apt-get install -y nmap
+            echo -e "\n${C_GREEN}ابزار nmap با موفقیت نصب شد.${C_RESET}"
             ;;
         2)
             read -ep "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
@@ -1627,27 +1541,7 @@ port_scanner_menu() {
                 echo -e "\n${C_GREEN}اسکن با nmap به پایان رسید.${C_RESET}"
             fi
             ;;
-        3)
-            read -ep "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
-            if ! is_valid_ip "$target_ip"; then
-                echo -e "\n${C_RED}خطا: آدرس IP وارد شده معتبر نیست.${C_RESET}"
-            elif ! command -v hping3 &> /dev/null; then
-                echo -e "\n${C_RED}خطا: hping3 نصب نیست. لطفاً ابتدا از گزینه ۱ آن را نصب کنید.${C_RESET}"
-            else
-                echo -e "\n${B_YELLOW}**هشدار:** این نوع اسکن بسیار زمان‌بر است و ممکن است ساعت‌ها طول بکشد.${C_RESET}"
-                read -ep "$(echo -e "${B_MAGENTA}آیا برای شروع اسکن با hping3 مطمئن هستید؟ (y/n): ${C_RESET}")" confirm
-                if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-                    echo -e "\n${C_YELLOW}در حال اسکن آهسته پورت‌های باز روی $target_ip با hping3...${C_RESET}"
-                    for p in $(seq 1 65535); do
-                        hping3 -S -p $p -c 1 "$target_ip" 2>/dev/null | grep 'flags=SA' && echo "Port $p is open";
-                    done
-                    echo -e "\n${C_GREEN}اسکن با hping3 به پایان رسید.${C_RESET}"
-                else
-                    echo -e "\n${C_RED}اسکن لغو شد.${C_RESET}"
-                fi
-            fi
-            ;;
-        4) return ;;
+        3) return ;;
         *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
     esac
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
@@ -2039,6 +1933,49 @@ manage_network_optimization() {
     done
 }
 
+# +++ START: BUGFIX - ADDED MISSING FUNCTION +++
+manage_ssh_port() {
+    clear
+    local sshd_config="/etc/ssh/sshd_config"
+    echo -e "${B_CYAN}--- تغییر پورت SSH ---${C_RESET}\n"
+    
+    # Get current port
+    local current_port=$(grep -i "^#*port" "$sshd_config" | tail -n 1 | awk '{print $2}')
+    echo -e "${C_WHITE}پورت SSH فعلی: ${C_GREEN}${current_port:-22}${C_RESET}"
+    
+    read -ep "$(echo -e "${B_MAGENTA}پورت جدید SSH را وارد کنید (یا برای لغو Enter بزنید): ${C_RESET}")" new_port
+
+    if [ -z "$new_port" ]; then
+        echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
+    elif ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
+        echo -e "\n${C_RED}خطا: شماره پورت نامعتبر است. باید عددی بین 1 و 65535 باشد.${C_RESET}"
+    else
+        echo -e "\n${C_YELLOW}در حال تغییر پورت به ${new_port}...${C_RESET}"
+        backup_file "$sshd_config"
+        
+        # Comment out all existing Port lines and add the new one
+        sed -i -E 's/^[ ]*#?[ ]*Port[ ].*/#&/' "$sshd_config"
+        # Add the new port setting
+        echo "Port ${new_port}" >> "$sshd_config"
+        
+        echo -e "\n${C_GREEN}پورت در فایل کانفیگ SSH تغییر یافت.${C_RESET}"
+        
+        # Open port in UFW if active
+        if command -v ufw &> /dev/null && ufw status | grep -q "Status: active"; then
+            echo -e "${C_YELLOW}فایروال UFW فعال است. در حال افزودن قانون برای پورت ${new_port}...${C_RESET}"
+            ufw allow "${new_port}/tcp"
+        fi
+
+        systemctl restart sshd
+        check_service_status "sshd"
+        
+        echo -e "\n${B_YELLOW}**مهم:** لطفاً اتصال SSH خود را با پورت جدید (${new_port}) تست کنید قبل از اینکه این ترمینال را ببندید.${C_RESET}"
+    fi
+    
+    read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+}
+# +++ END: BUGFIX +++
+
 manage_security() {
     while true; do
         clear
@@ -2058,7 +1995,7 @@ manage_security() {
         case $choice in
             1) manage_firewall ;;
             2) manage_ssh_root ;;
-            3) manage_ssh_port ;;
+            3) manage_ssh_port ;; # This now works
             4) manage_ipv6 ;;
             5) manage_reboot_cron ;;
             6) port_scanner_menu ;;
@@ -2071,7 +2008,6 @@ manage_security() {
     done
 }
 
-# +++ START: NEW FUNCTION FOR RATHOLE OPTIMIZER +++
 manage_rathole_optimizer_monitoring() {
     while true; do
         clear
@@ -2103,79 +2039,38 @@ manage_rathole_optimizer_monitoring() {
         esac
     done
 }
-# +++ END: NEW FUNCTION FOR RATHOLE OPTIMIZER +++
 
 manage_rat_hole_tunnel() {
     while true; do
         clear
         echo -e "${B_CYAN}--- تانل رت هول بهینه ایران ---${C_RESET}\n"
-        echo -e "${C_YELLOW}1)${C_WHITE} دانلود آنلاین رت هول (پیشنهادی)"
-        echo -e "${C_YELLOW}2)${C_WHITE} نصب تونل رت هول"
-        echo -e "${C_YELLOW}3)${C_WHITE} بهینه ساز و مونیتورینگ رت هول" # MODIFIED
-        echo -e "${C_YELLOW}4)${C_WHITE} راهنما"
-        echo -e "${C_YELLOW}5)${C_WHITE} بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}1)${C_WHITE} نصب تونل رت هول (با اسکریپت اصلی)"
+        echo -e "${C_YELLOW}2)${C_WHITE} بهینه ساز و مونیتورینگ رت هول"
+        echo -e "${C_YELLOW}3)${C_WHITE} راهنما"
+        echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" tunnel_choice
 
         case $tunnel_choice in
             1)
-                echo -e "\n${C_YELLOW}در حال دانلود فایل های مورد نیاز از گیت هاب...${C_RESET}"
-                local rathole_v2_url="https://raw.githubusercontent.com/cy33r/IR-NET/refs/heads/main/rathole_v2.sh"
-                local watchdog_url="https://raw.githubusercontent.com/cy33r/IR-NET/refs/heads/main/rathole_watchdog.sh"
-                local success=true
-
-                echo "--> دانلود rathole_v2.sh..."
-                if ! curl -s -o /root/rathole_v2.sh "$rathole_v2_url"; then
-                    echo -e "${C_RED}خطا در دانلود rathole_v2.sh.${C_RESET}"
-                    success=false
-                fi
-
-                echo "--> دانلود rathole_watchdog.sh..."
-                if ! curl -s -o /root/rathole_watchdog.sh "$watchdog_url"; then
-                    echo -e "${C_RED}خطا در دانلود rathole_watchdog.sh.${C_RESET}"
-                    success=false
-                fi
-
-                if $success; then
-                    echo -e "\n${C_GREEN}فایل ها با موفقیت در /root/ دانلود شدند.${C_RESET}"
-                    chmod +x /root/rathole_v2.sh
-                    chmod +x /root/rathole_watchdog.sh
-                    echo -e "${C_YELLOW}دسترسی اجرایی به اسکریپت ها داده شد.${C_RESET}"
-                else
-                    echo -e "\n${C_RED}یک یا چند فایل دانلود نشد. لطفاً اتصال اینترنت خود را بررسی کرده یا به صورت دستی اقدام کنید.${C_RESET}"
-                fi
+                echo -e "\n${C_YELLOW}در حال دانلود و اجرای اسکریپت نصب رسمی رت هول...${C_RESET}"
+                bash <(curl -s https://raw.githubusercontent.com/cy33r/IR-NET/refs/heads/main/rathole_v2.sh)
                 read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
                 ;;
             2)
-                local rathole_script="/root/rathole_v2.sh"
-                if [ -f "$rathole_script" ]; then
-                    echo -e "\n${C_GREEN}در حال اجرای اسکریپت نصب تونل رت هول...${C_RESET}"
-                    bash "$rathole_script"
-                else
-                    echo -e "\n${C_RED}خطا: اسکریپت ${rathole_script} یافت نشد! لطفاً ابتدا از گزینه (1) برای دانلود استفاده کنید.${C_RESET}"
-                fi
-                read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
-                ;;
-            3)
-                # MODIFIED: Calls the new submenu
                 manage_rathole_optimizer_monitoring
                 ;;
-            4)
+            3)
                 clear
                 echo -e "${B_CYAN}--- راهنما ---${C_RESET}\n"
-                echo -e "${C_WHITE}برای نصب، ابتدا از گزینه ${C_YELLOW}(1) دانلود آنلاین رت هول${C_RESET}${C_WHITE} استفاده کنید."
-                echo -e "${C_WHITE}اسکریپت ها به صورت خودکار در پوشه /root دانلود و آماده اجرا می شوند."
+                echo -e "${C_WHITE}ابتدا با استفاده از گزینه ${C_YELLOW}(1)${C_RESET}${C_WHITE}، تونل اصلی را نصب و راه اندازی کنید."
                 echo ""
-                echo -e "${C_YELLOW}سپس اقدام به نصب تونل (گزینه 2) و بعد از آن بهینه ساز (گزینه 3) نمایید.${C_RESET}"
-                echo -e "${C_YELLOW}دقت داشته باشید که تا تونل را کامل راه اندازی نکنید، بهینه ساز با خطا مواجه خواهد شد.${C_RESET}"
-                echo ""
-                echo -e "${C_WHITE}در صورت مشکل در دانلود آنلاین، می توانید فایل های زیر را به صورت دستی دانلود کرده و در پوشه روت قرار دهید:"
-                echo -e "  - ${C_GREEN}rathole_v2.sh${C_RESET}"
-                echo -e "  - ${C_GREEN}rathole_watchdog.sh${C_RESET}"
+                echo -e "${C_WHITE}پس از اطمینان از عملکرد صحیح تونل، از گزینه ${C_YELLOW}(2)${C_RESET}${C_WHITE} برای نصب اسکریپت‌های"
+                echo -e "${C_WHITE}بهینه ساز و مانیتورینگ استفاده نمایید."
                 echo -e "\n${C_WHITE}باتشکر${C_RESET}"
                 read -n 1 -s -r -p $'\nبرای بازگشت به منو، کلیدی را فشار دهید...'
                 ;;
-            5)
+            4)
                 return
                 ;;
             *)
