@@ -432,29 +432,6 @@ restore_backup() {
     fi
 }
 
-show_header_as_bbr() {
-    clear
-    log_message INFO "Displaying header information."
-    local hostname kernel_version uptime
-    hostname=$(hostname 2>/dev/null || echo "Unknown")
-    kernel_version=$(uname -r 2>/dev/null || echo "Unknown")
-    uptime=$(uptime -p 2>/dev/null || echo "Unknown")
-    printf "\n%s===========================================%s\n" "$AS_BLUE" "$AS_NC"
-    printf "" "$AS_CYAN" "$AS_NC"
-    printf "" "$AS_CYAN" "$AS_NC"
-    printf "%s===========================================%s\n" "$AS_BLUE" "$AS_NC"
-    printf "%sHostname: %s%s\n" "$AS_GREEN" "$hostname" "$AS_NC"
-    printf "%sKernel Version: %s%s\n" "$AS_GREEN" "$kernel_version" "$AS_NC"
-    printf "%sUptime: %s%s\n" "$AS_GREEN" "$uptime" "$AS_NC"
-    printf "%sDefault Interface: %s%s\n" "$AS_GREEN" "${PRIMARY_INTERFACE:-"Not detected"}" "$AS_NC"
-    if check_internet_connection >/dev/null 2>&1; then
-        printf "%sInternet: Connected%s\n" "$AS_GREEN" "$AS_NC"
-    else
-        printf "%sInternet: Disconnected%s\n" "$AS_RED" "$AS_NC"
-    fi
-    printf "%s===========================================%s\n\n" "$AS_BLUE" "$AS_NC"
-}
-
 fix_etc_hosts() {
     local host_path="${1:-/etc/hosts}"
     local hostname_cached
@@ -959,9 +936,12 @@ intelligent_optimize() {
     return 0
 }
 
+# --- REMOVED: Redundant show_header_as_bbr function ---
+
+# --- REVISED: No longer displays redundant header ---
 show_advanced_menu_as_bbr() {
     while true; do
-        show_header_as_bbr
+        clear
         log_message INFO "Displaying advanced menu."
         printf "%sگزینه های پیشرفته:%s\n" "$AS_CYAN" "$AS_NC"
         printf "%s۱. بهینه سازی دستی MTU%s\n" "$AS_GREEN" "$AS_NC"
@@ -1011,9 +991,10 @@ show_advanced_menu_as_bbr() {
     done
 }
 
+# --- REVISED: No longer displays redundant header ---
 show_as_bbr_menu() {
     while true; do
-        show_header_as_bbr
+        clear
         log_message INFO "Displaying main menu."
         printf "%sگزینه های موجود:%s\n" "$AS_CYAN" "$AS_NC"
         printf "%s۱.اعمال بهینه سازی هوشمند%s\n" "$AS_GREEN" "$AS_NC"
