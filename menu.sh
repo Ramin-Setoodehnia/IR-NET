@@ -2220,25 +2220,26 @@ manage_security() {
     done
 }
 
-manage_rathole_optimizer_monitoring() {
+# START: MODIFIED RATHOLE SECTION
+manage_rathole_monitoring() {
     while true; do
         clear
         echo -e "${B_CYAN}--- بهینه ساز و مونیتورینگ رت هول ---${C_RESET}\n"
-        echo -e "${C_YELLOW}1)${C_WHITE} نسخه چندسروره"
-        echo -e "${C_YELLOW}2)${C_WHITE} نسخه تک‌سروره"
+        echo -e "${C_YELLOW}1)${C_WHITE} مانیتورینگ چند سرور با TLS از طریق رتهول"
+        echo -e "${C_YELLOW}2)${C_WHITE} پایش تونل بک‌هال بین دو VPS برای عبور از فیلترینگ"
         echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی قبلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
 
         case $choice in
             1)
-                echo -e "\n${C_YELLOW}در حال اجرای اسکریپت نسخه چندسروره...${C_RESET}"
-                bash <(curl -s https://raw.githubusercontent.com/naseh42/tunnel_watchdog/main/tunnel_watchdog.sh)
+                echo -e "\n${C_YELLOW}در حال اجرای اسکریپت مانیتورینگ چند سرور...${C_RESET}"
+                bash <(curl -s https://raw.githubusercontent.com/naseh42/tunnel_watchdog/main/rathole_watchdog.sh)
                 read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
                 ;;
             2)
-                echo -e "\n${C_YELLOW}در حال اجرای اسکریپت نسخه تک‌سروره...${C_RESET}"
-                bash <(curl -s https://raw.githubusercontent.com/naseh42/tunnel_watchdog/main/rathole_watchdog.sh)
+                echo -e "\n${C_YELLOW}در حال اجرای اسکریپت پایش تونل بک‌هال...${C_RESET}"
+                bash <(curl -s https://raw.githubusercontent.com/naseh42/tunnel_watchdog/main/bachaul_watchdog.sh)
                 read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
                 ;;
             3)
@@ -2270,16 +2271,31 @@ manage_rat_hole_tunnel() {
                 read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
                 ;;
             2)
-                manage_rathole_optimizer_monitoring
+                manage_rathole_monitoring
                 ;;
             3)
                 clear
                 echo -e "${B_CYAN}--- راهنما ---${C_RESET}\n"
-                echo -e "${C_WHITE}ابتدا با استفاده از گزینه ${C_YELLOW}(1)${C_RESET}${C_WHITE}، تونل اصلی را نصب و راه اندازی کنید."
+                
+                echo -e "${B_YELLOW}اسکریپت مانیتورینگ چند سرور با TLS از طریق رتهول :${C_RESET}"
+                echo -e "${C_WHITE}✅ پس از اجرای منو:"
+                echo -e "${C_WHITE}   گزینه [1] را انتخاب کن"
+                echo -e "${C_WHITE}   تعداد سرورها و IP:PORT های TLS را وارد کن"
+                echo -e "${C_WHITE}   سرویس rathole_watchdog.service ساخته و فعال می‌شود"
                 echo ""
-                echo -e "${C_WHITE}پس از اطمینان از عملکرد صحیح تونل، از گزینه ${C_YELLOW}(2)${C_RESET}${C_WHITE} برای نصب اسکریپت‌های"
-                echo -e "${C_WHITE}بهینه ساز و مانیتورینگ استفاده نمایید."
-                echo -e "\n${C_WHITE}باتشکر${C_RESET}"
+                echo -e "${C_WHITE}   مشاهده لاگ‌ها:"
+                echo -e "${C_CYAN}   cat /var/log/rathole_watchdog.log${C_RESET}"
+                echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
+
+                echo -e "${B_YELLOW}پایش تونل بک‌هال بین دو VPS برای عبور از فیلترینگ :${C_RESET}"
+                echo -e "${C_WHITE}✅ پس از اجرای منو:"
+                echo -e "${C_WHITE}   گزینه [1] را انتخاب کن"
+                echo -e "${C_WHITE}   IP:PORT بک‌هال‌ها را وارد کن"
+                echo -e "${C_WHITE}   سرویس backhaul_watchdog.service ساخته و فعال می‌شود"
+                echo ""
+                echo -e "${C_WHITE}   مشاهده لاگ‌ها:"
+                echo -e "${C_CYAN}   cat /var/log/backhaul_watchdog.log${C_RESET}"
+                
                 read -n 1 -s -r -p $'\nبرای بازگشت به منو، کلیدی را فشار دهید...'
                 ;;
             4)
@@ -2292,6 +2308,8 @@ manage_rat_hole_tunnel() {
         esac
     done
 }
+# END: MODIFIED RATHOLE SECTION
+
 
 # --- SCRIPT MAIN LOOP ---
 check_dependencies_at_start() {
