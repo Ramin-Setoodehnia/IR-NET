@@ -7,28 +7,35 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-# --- Color Palette (From menu.sh) ---
-C_RESET='\033[0m'
-C_RED='\033[0;31m'
-C_GREEN='\033[0;32m'
-C_YELLOW='\033[0;33m'
-C_BLUE='\033[0;34m'
-C_MAGENTA='\033[0;35m'
-C_CYAN='\033[0;36m'
-C_WHITE='\033[0;37m'
-# Bold
-B_BLUE='\033[1;34m'
-B_MAGENTA='\033[1;35m'
-B_CYAN='\033[1;36m'
-B_YELLOW='\033[1;33m'
-
-# --- Color Palette (From AS-BBR.sh) ---
-readonly AS_RED=$'\033[0;31m'
-readonly AS_GREEN=$'\033[0;32m'
-readonly AS_YELLOW=$'\033[1;33m'
-readonly AS_BLUE=$'\033[0;34m'
-readonly AS_CYAN=$'\033[0;36m'
-readonly AS_NC=$'\033[0m' # No Color
+# --- START: FINAL ROBUST COLOR PALETTE ---
+C_RESET=$'\e[0m'
+C_RED=$'\e[0;31m'
+C_GREEN=$'\e[0;32m'
+C_YELLOW=$'\e[0;33m'
+C_BLUE=$'\e[0;34m'
+C_MAGENTA=$'\e[0;35m'
+C_CYAN=$'\e[0;36m'
+C_WHITE=$'\e[0;37m'
+B_BLUE=$'\e[1;34m'
+B_MAGENTA=$'\e[1;35m'
+B_CYAN=$'\e[1;36m'
+B_YELLOW=$'\e[1;33m'
+R=$'\e[0;31m'
+G=$'\e[0;32m'
+Y=$'\e[0;33m'
+B=$'\e[0;34m'
+C=$'\e[0;36m'
+W=$'\e[1;37m'
+D=$'\e[0;90m'
+N=$'\e[0m'
+P=$'\e[1;35m'
+readonly AS_RED=$'\e[0;31m'
+readonly AS_GREEN=$'\e[0;32m'
+readonly AS_YELLOW=$'\e[1;33m'
+readonly AS_BLUE=$'\e[0;34m'
+readonly AS_CYAN=$'\e[0;36m'
+readonly AS_NC=$'\e[0m'
+# --- END: FINAL ROBUST COLOR PALETTE ---
 
 
 # --- Header and Banner ---
@@ -43,67 +50,158 @@ show_banner() {
     echo ""
 }
 
-# --- System Status Header (REVISED AND FINAL) ---
-show_system_status_header() {
-    # Fetch local information
-    local hostname=$(hostname 2>/dev/null || echo "N/A")
-    local kernel_version=$(uname -r 2>/dev/null || echo "N/A")
-    local uptime_str=$(uptime -p 2>/dev/null | sed 's/up //')
-    [ -z "$uptime_str" ] && uptime_str="N/A"
-    local interface=$(ip route get 8.8.8.8 2>/dev/null | awk --sandbox '/dev/ {print $5; exit}')
-    [ -z "$interface" ] && interface="N/A"
-
-    # Set default values for geo info
-    local location="N/A"
-    local datacenter="N/A"
-    local dns_servers="N/A"
-    local internet_status="${C_RED}✖ Disconnected${C_RESET}"
-
-    # --- NEW: Quick Internet Check to prevent slow loading ---
-    if ping -c 1 -W 2 8.8.8.8 &>/dev/null; then
-        internet_status="${C_GREEN}✔ Connected${C_RESET}"
-        
-        # Fetch DNS servers using the correct method
-        if command -v resolvectl &>/dev/null; then
-            dns_servers=$(resolvectl status | awk '/DNS Servers:/{ $1=""; $2=""; print $0 }' | head -n 1 | xargs)
-        else
-            dns_servers=$(grep '^nameserver' /etc/resolv.conf | awk '{print $2}' | tr '\n' ' ')
-        fi
-        [ -z "$dns_servers" ] && dns_servers="N/A"
-
-        # Fetch GeoIP information
-        local public_ip=$(curl -s -4 --max-time 5 ip.sb)
-        if [ -n "$public_ip" ]; then
-            local geo_info=$(curl -s --max-time 5 "http://ipwhois.app/json/$public_ip")
-            if [[ -n "$geo_info" && "$geo_info" == *"country"* && "$geo_info" == *"isp"* ]]; then
-                if command -v jq &>/dev/null; then
-                    location=$(echo "$geo_info" | jq -r .country)
-                    datacenter=$(echo "$geo_info" | jq -r .isp)
-                else # Fallback if jq is not installed
-                    location=$(echo "$geo_info" | grep '"country"' | awk -F'"' '{print $4}')
-                    datacenter=$(echo "$geo_info" | grep '"isp"' | awk -F'"' '{print $4}')
-                fi
-            fi
-        fi
-        [ -z "$location" ] && location="N/A"
-        [ -z "$datacenter" ] && datacenter="N/A"
+# --- START: NEW HELPER FUNCTIONS ---
+progress_bar() {
+    local msg="$1"
+    local total_time="$2"
+    local width=25
+    local delay
+    if command -v bc &>/dev/null; then
+        delay=$(echo "scale=3; $total_time/100" | bc -l)
+    else
+        delay="0.05"
     fi
-    # If ping fails, the default "N/A" and "Disconnected" values are used, and the function quickly proceeds to printing.
 
-    # Print the box with truncation for long strings to prevent breaking the layout
-    printf "${B_BLUE}╔══════════════════════════════════════════════════════════════╗${C_RESET}\n"
-    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35s ${B_BLUE}║${C_RESET}\n" "HOSTNAME" "$hostname"
-    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35s ${B_BLUE}║${C_RESET}\n" "KERNEL VERSION" "$kernel_version"
-    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35s ${B_BLUE}║${C_RESET}\n" "UPTIME" "$uptime_str"
-    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35s ${B_BLUE}║${C_RESET}\n" "DEFAULT INTERFACE" "$interface"
-    printf "${B_BLUE}║ ${C_WHITE}%-19s: %-45b ${B_BLUE}║${C_RESET}\n" "INTERNET" "$internet_status"
-    printf "${B_BLUE}╟──────────────────────────────────────────────────────────╢${C_RESET}\n"
-    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35.35s ${B_BLUE}║${C_RESET}\n" "DNS SERVERS" "$dns_servers"
-    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35.35s ${B_BLUE}║${C_RESET}\n" "LOCATION" "$location"
-    printf "${B_BLUE}║ ${C_WHITE}%-19s: ${C_CYAN}%-35.35s ${B_BLUE}║${C_RESET}\n" "DATACENTER" "$datacenter"
-    printf "${B_BLUE}╚══════════════════════════════════════════════════════════════╝${C_RESET}\n"
+    printf "%-30s " "$msg"
+
+    for ((i=0; i<=100; i++)); do
+        local filled=$((i*width/100))
+        local empty=$((width-filled))
+        printf "\r%-30s [" "$msg"
+        printf "${G}%${filled}s${N}" | tr ' ' '#'
+        printf "%${empty}s" | tr ' ' '-'
+        printf "] %3d%% " "$i"
+        sleep "$delay"
+    done
+    printf "${G}COMPLETE${N}\n"
 }
 
+check_ipv6_status() {
+    if sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null | grep -q "1"; then
+        echo "disabled"
+    else
+        echo "enabled"
+    fi
+}
+
+check_ping_status() {
+    if iptables -C INPUT -p icmp --icmp-type echo-request -j DROP 2>/dev/null; then
+        echo "blocked"
+    else
+        echo "allowed"
+    fi
+}
+# --- END: NEW HELPER FUNCTIONS ---
+
+
+# --- START: FINAL CORRECTED SYSTEM STATUS ---
+show_enhanced_system_status() {
+    # This function calculates the visual length of a string, ignoring ANSI color codes.
+    get_visual_length() {
+        local clean_string
+        # The sed command is the most reliable way to strip all SGR escape sequences
+        clean_string=$(echo -e "$1" | sed 's/\x1b\[[0-9;]*m//g')
+        echo -n "$clean_string" | wc -c
+    }
+
+    # Data Collection (all variables are local to this function)
+    local cpu_model=$(grep "model name" /proc/cpuinfo | head -1 | cut -d':' -f2 | sed 's/^ *//' | cut -c1-30)
+    local cpu_cores=$(nproc)
+    local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1 2>/dev/null || echo "N/A")
+    local mem_total=$(free -h | grep "Mem:" | awk '{print $2}')
+    local mem_used=$(free -h | grep "Mem:" | awk '{print $3}')
+    local mem_percent=$(free | grep "Mem:" | awk '{printf "%.0f", ($3/$2)*100.0}')
+    local load_avg=$(uptime | awk -F'load average:' '{print $2}' | sed 's/^ *//' | cut -d',' -f1)
+    local uptime_str=$(uptime -p 2>/dev/null | sed 's/up //')
+    local ipv6_status_val=$(check_ipv6_status)
+    local ping_status_val=$(check_ping_status)
+    local ubuntu_version=$(lsb_release -sr 2>/dev/null || echo 'N/A')
+    local current_mirror
+    if [[ "$ubuntu_version" > "22" ]] && [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+        current_mirror=$(grep -m1 "URIs:" /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null | awk '{print $2}')
+    else
+        current_mirror=$(grep -m1 "^deb " /etc/apt/sources.list 2>/dev/null | awk '{print $2}')
+    fi
+    [ -z "$current_mirror" ] && current_mirror="N/A"
+
+    # Network Info
+    local net_info ip_addr="N/A" location="N/A" provider="N/A" dns_servers="N/A"
+    local net_status="${R}Unavailable${N}"
+    if net_info=$(curl -s --connect-timeout 4 http://ip-api.com/json); then
+        if [[ $(echo "$net_info" | jq -r .status 2>/dev/null) == "success" ]]; then
+            net_status="${G}Available${N}"
+            ip_addr=$(echo "$net_info" | jq -r .query)
+            location="$(echo "$net_info" | jq -r .city), $(echo "$net_info" | jq -r .country)"
+            provider=$(echo "$net_info" | jq -r .isp)
+        fi
+    fi
+    if command -v resolvectl &>/dev/null; then
+        dns_servers=$(resolvectl status | awk '/DNS Servers:/{ $1=""; $2=""; print $0 }' | head -n 1 | xargs)
+    else
+        dns_servers=$(grep '^nameserver' /etc/resolv.conf | awk '{print $2}' | tr '\n' ' ')
+    fi
+    [ -z "$dns_servers" ] && dns_servers="N/A"
+
+    # Status Formatting
+    local ipv6_display="${ipv6_status_val^}"
+    [[ "$ipv6_status_val" == "enabled" ]] && ipv6_display="${G}${ipv6_display}${N}" || ipv6_display="${R}${ipv6_display}${N}"
+    local ping_display="${ping_status_val^}"
+    [[ "$ping_status_val" == "allowed" ]] && ping_display="${G}${ping_display}${N}" || ping_display="${R}${ping_display}${N}"
+
+    # Prepare labels and values for the table
+    local labels=( "CPU" "PERFORMANCE" "MEMORY" "UPTIME" "IPV6 STATUS" "PING STATUS" "DNS" "IP ADDRESS" "LOCATION" "PROVIDER" "APT MIRROR" "UBUNTU VERSION" "NET STATUS" )
+    local values=(
+        "$cpu_model"
+        "Cores: ${G}${cpu_cores}${N} | Usage: ${Y}${cpu_usage}%${N} | Load: ${C}${load_avg}${N}"
+        "${B}${mem_used}${N} / ${C}${mem_total}${N} (${Y}${mem_percent}%${N})"
+        "$uptime_str"
+        "$ipv6_display"
+        "$ping_display"
+        "$dns_servers"
+        "${G}${ip_addr}${N}"
+        "$location"
+        "$provider"
+        "$(echo "${current_mirror}" | sed 's|https\?://||' | cut -d'/' -f1)"
+        "${C}${ubuntu_version}${N}"
+        "$net_status"
+    )
+
+    # Calculate dynamic padding
+    local max_label_len=0
+    local max_value_len=0
+    for label in "${labels[@]}"; do
+        (( ${#label} > max_label_len )) && max_label_len=${#label}
+    done
+    for value in "${values[@]}"; do
+        local visual_len
+        visual_len=$(get_visual_length "$value")
+        (( visual_len > max_value_len )) && max_value_len=$visual_len
+    done
+
+    local total_width=$((max_label_len + max_value_len + 7))
+
+    # Print the box
+    printf "${B_BLUE}╔%s╗\n" "$(printf '═%.0s' $(seq 1 $total_width))"
+    for i in "${!labels[@]}"; do
+        local label="${labels[$i]}"
+        local value="${values[$i]}"
+        local visual_value_len
+        visual_value_len=$(get_visual_length "$value")
+        
+        # Print left side of the row
+        printf "${B_BLUE}║${C_WHITE} %s" "$label"
+        printf "%*s" $((max_label_len - ${#label})) ""
+        
+        # Print separator and the value
+        printf " ${B_BLUE}│${C_CYAN} %s" "$value"
+
+        # Print the right side padding and wall
+        printf "%*s" $((max_value_len - visual_value_len)) ""
+        printf " ${B_BLUE}║\n"
+    done
+    printf "${B_BLUE}╚%s╝\n" "$(printf '═%.0s' $(seq 1 $total_width))"
+}
+# --- END: FINAL CORRECTED SYSTEM STATUS ---
 
 # --- HELPER FUNCTIONS (From menu.sh) ---
 backup_file() {
@@ -187,7 +285,7 @@ handle_interrupt() {
         sleep 1
         echo "$pids" | xargs -r kill -KILL 2>/dev/null || true
     fi
-    rm -f /tmp/dns_test_$$_* /tmp/conn_test_$$_* 2>/dev/null
+    rm -f /tmp/dns_test_$$_* /tmp/conn_test_$$_* /tmp/mirror_speeds_$$ 2>/dev/null
     exit 130
 }
 
@@ -368,10 +466,10 @@ install_dependencies() {
     fi
     local deps=()
     case "$pkg_manager" in
-        "apt-get") deps=("ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq") ;;
-        "yum"|"dnf") deps=("ethtool" "net-tools" "bind-utils" "mtr" "iperf3" "jq") ;;
-        "pacman") deps=("ethtool" "net-tools" "bind-tools" "mtr" "iperf3" "jq") ;;
-        "zypper") deps=("ethtool" "net-tools" "bind-utils" "mtr" "iperf3" "jq") ;;
+        "apt-get") deps=("ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq" "bc" "iptables-persistent" "lsb-release") ;;
+        "yum"|"dnf") deps=("ethtool" "net-tools" "bind-utils" "mtr" "iperf3" "jq" "bc" "lsb-release") ;;
+        "pacman") deps=("ethtool" "net-tools" "bind-tools" "mtr" "iperf3" "jq" "bc" "lsb-release") ;;
+        "zypper") deps=("ethtool" "net-tools" "bind-utils" "mtr" "iperf3" "jq" "bc" "lsb-release") ;;
     esac
     local missing_deps=()
     for dep in "${deps[@]}"; do
@@ -861,6 +959,7 @@ run_diagnostics() {
             rx_bytes=$(cat "/sys/class/net/$interface/statistics/rx_bytes" 2>/dev/null)
             tx_bytes=$(cat "/sys/class/net/$interface/statistics/tx_bytes" 2>/dev/null)
             if [[ -n "$rx_bytes" ]] && [[ -n "$tx_bytes" ]]; then
+                local rx_human tx_human
                 rx_human=$(numfmt --to=iec --suffix=B "$rx_bytes" 2>/dev/null || echo "$rx_bytes bytes")
                 tx_human=$(numfmt --to=iec --suffix=B "$tx_bytes" 2>/dev/null || echo "$tx_bytes bytes")
                 printf "%s│%s RX: %s%s%s, TX: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "$rx_human" "$AS_NC" "$AS_GREEN" "$tx_human" "$AS_NC"
@@ -936,9 +1035,6 @@ intelligent_optimize() {
     return 0
 }
 
-# --- REMOVED: Redundant show_header_as_bbr function ---
-
-# --- REVISED: No longer displays redundant header ---
 show_advanced_menu_as_bbr() {
     while true; do
         clear
@@ -991,7 +1087,6 @@ show_advanced_menu_as_bbr() {
     done
 }
 
-# --- REVISED: No longer displays redundant header ---
 show_as_bbr_menu() {
     while true; do
         clear
@@ -1060,23 +1155,23 @@ manage_dns() {
         echo -e "\n${B_YELLOW}در حال تنظیم DNS های زیر به صورت دائمی...${C_RESET}"
         echo -e "DNS اصلی: ${C_GREEN}$dns1${C_RESET}"
         echo -e "DNS کمکی: ${C_GREEN}$dns2${C_RESET}"
-        backup_file $resolved_conf
-        touch $resolved_conf
-        sed -i -E 's/^#?DNS=.*//' $resolved_conf
-        sed -i -E 's/^#?FallbackDNS=.*//' $resolved_conf
-        sed -i -E 's/^#?\[Resolve\]/\[Resolve\]/' $resolved_conf
-        grep -v '^[[:space:]]*$' $resolved_conf > "${resolved_conf}.tmp" && mv "${resolved_conf}.tmp" $resolved_conf
-        if grep -q "\[Resolve\]" $resolved_conf; then
-            sed -i "/\[Resolve\]/a DNS=${dns1}" $resolved_conf
+        backup_file "$resolved_conf"
+        touch "$resolved_conf"
+        sed -i -E 's/^#?DNS=.*//' "$resolved_conf"
+        sed -i -E 's/^#?FallbackDNS=.*//' "$resolved_conf"
+        sed -i -E 's/^#?\[Resolve\]/\[Resolve\]/' "$resolved_conf"
+        grep -v '^[[:space:]]*$' "$resolved_conf" > "${resolved_conf}.tmp" && mv "${resolved_conf}.tmp" "$resolved_conf"
+        if grep -q "\[Resolve\]" "$resolved_conf"; then
+            sed -i "/\[Resolve\]/a DNS=${dns1}" "$resolved_conf"
             if [ -n "$dns2" ]; then
-                sed -i "/DNS=${dns1}/a FallbackDNS=${dns2}" $resolved_conf
+                sed -i "/DNS=${dns1}/a FallbackDNS=${dns2}" "$resolved_conf"
             fi
         else
-            echo "" >> $resolved_conf
-            echo "[Resolve]" >> $resolved_conf
-            echo "DNS=${dns1}" >> $resolved_conf
+            echo "" >> "$resolved_conf"
+            echo "[Resolve]" >> "$resolved_conf"
+            echo "DNS=${dns1}" >> "$resolved_conf"
             if [ -n "$dns2" ]; then
-                echo "FallbackDNS=${dns2}" >> $resolved_conf
+                echo "FallbackDNS=${dns2}" >> "$resolved_conf"
             fi
         fi
         systemctl restart systemd-resolved
@@ -1089,7 +1184,8 @@ manage_dns() {
         echo "این عملیات ممکن است کمی طول بکشد."
         local results=""
         for ip in "${dns_list[@]}"; do
-            local ping_avg=$(ping -c 3 -W 1 -q "$ip" | tail -1 | awk -F '/' '{print $5}' 2>/dev/null)
+            local ping_avg
+            ping_avg=$(ping -c 3 -W 1 -q "$ip" | tail -1 | awk -F '/' '{print $5}' 2>/dev/null)
             if [ -n "$ping_avg" ]; then
                 echo -e "پینگ ${C_YELLOW}$ip${C_RESET}: ${C_GREEN}${ping_avg} ms${C_RESET}"
                 results+="${ping_avg} ${ip}\n"
@@ -1124,7 +1220,7 @@ manage_dns() {
             1) find_and_set_best_dns IRAN_DNS_LIST "ایران"; break ;;
             2) find_and_set_best_dns GLOBAL_DNS_LIST "جهانی"; break ;;
             3) clear; echo -e "${B_CYAN}--- وضعیت DNS فعال سیستم ---${C_RESET}"; resolvectl status; echo -e "${B_BLUE}-----------------------------------${C_RESET}"; break ;;
-            4) nano $resolved_conf; break ;;
+            4) nano "$resolved_conf"; break ;;
             5) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
@@ -1147,25 +1243,25 @@ manage_ipv6() {
             if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
                 echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
             else
-                backup_file $sysctl_conf
-                touch $sysctl_conf
-                sed -i '/net.ipv6.conf.all.disable_ipv6/d' $sysctl_conf
-                sed -i '/net.ipv6.conf.default.disable_ipv6/d' $sysctl_conf
-                sed -i '/net.ipv6.conf.lo.disable_ipv6/d' $sysctl_conf
-                echo "net.ipv6.conf.all.disable_ipv6 = 1" >> $sysctl_conf
-                echo "net.ipv6.conf.default.disable_ipv6 = 1" >> $sysctl_conf
-                echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> $sysctl_conf
+                backup_file "$sysctl_conf"
+                touch "$sysctl_conf"
+                sed -i '/net.ipv6.conf.all.disable_ipv6/d' "$sysctl_conf"
+                sed -i '/net.ipv6.conf.default.disable_ipv6/d' "$sysctl_conf"
+                sed -i '/net.ipv6.conf.lo.disable_ipv6/d' "$sysctl_conf"
+                echo "net.ipv6.conf.all.disable_ipv6 = 1" >> "$sysctl_conf"
+                echo "net.ipv6.conf.default.disable_ipv6 = 1" >> "$sysctl_conf"
+                echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> "$sysctl_conf"
                 sysctl -p
                 echo -e "\n${C_GREEN}IPV6 با موفقیت غیرفعال شد.${C_RESET}"
             fi
             ;;
         2)
-            backup_file $sysctl_conf
-            touch $sysctl_conf
+            backup_file "$sysctl_conf"
+            touch "$sysctl_conf"
             if [ -f "$sysctl_conf" ]; then
-                sed -i '/net.ipv6.conf.all.disable_ipv6/d' $sysctl_conf
-                sed -i '/net.ipv6.conf.default.disable_ipv6/d' $sysctl_conf
-                sed -i '/net.ipv6.conf.lo.disable_ipv6/d' $sysctl_conf
+                sed -i '/net.ipv6.conf.all.disable_ipv6/d' "$sysctl_conf"
+                sed -i '/net.ipv6.conf.default.disable_ipv6/d' "$sysctl_conf"
+                sed -i '/net.ipv6.conf.lo.disable_ipv6/d' "$sysctl_conf"
                 sysctl -p
                 echo -e "\n${C_GREEN}تنظیمات غیرفعال‌سازی IPV6 حذف شد.${C_RESET}"
             else
@@ -1196,7 +1292,7 @@ manage_ssh_root() {
       else
           echo -e "\nابتدا باید برای کاربر root یک رمز عبور تنظیم کنید."
           passwd root
-          backup_file $sshd_config
+          backup_file "$sshd_config"
           if grep -q "^#*PermitRootLogin" "$sshd_config"; then
             sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' "$sshd_config"
           else
@@ -1207,7 +1303,7 @@ manage_ssh_root() {
       fi
       ;;
     2)
-      backup_file $sshd_config
+      backup_file "$sshd_config"
       if grep -q "^#*PermitRootLogin" "$sshd_config"; then
         sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' "$sshd_config"
       else
@@ -1225,9 +1321,9 @@ manage_ssh_root() {
 install_core_packages() {
   clear
   echo -e "${B_CYAN}--- آپدیت و نصب پکیج های لازم ---${C_RESET}\n"
-  echo "در حال به‌روزرسانی سیستم و نصب بسته‌های ضروری (curl, socat, wget)..."
-  apt update && apt upgrade -y
-  apt install curl socat wget -y
+  echo "در حال به‌روزرسانی سیستم و نصب بسته‌های ضروری (curl, socat, wget, jq, bc, iptables-persistent, lsb-release)..."
+  apt-get update && apt-get upgrade -y
+  apt-get install -y curl socat wget jq bc iptables-persistent lsb-release
   echo -e "\n${C_GREEN}سیستم با موفقیت به‌روزرسانی و بسته‌ها نصب شدند.${C_RESET}"
   read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
@@ -1263,10 +1359,10 @@ manage_tc_script() {
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی بهینه‌سازی"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
   read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
-  SCRIPT_PATH="/usr/local/bin/tc_optimize.sh"
+  local SCRIPT_PATH="/usr/local/bin/tc_optimize.sh"
   case $choice in
     1)
-      cat > $SCRIPT_PATH << 'EOF'
+      cat > "$SCRIPT_PATH" << 'EOF'
 #!/bin/bash
 INTERFACE=$(ip route get 8.8.8.8 | awk '/dev/ {print $5; exit}')
 tc qdisc del dev $INTERFACE root 2>/dev/null
@@ -1291,16 +1387,16 @@ else
     echo 'Fallback Netem optimization complete'
 fi
 tc qdisc show dev $INTERFACE | grep -E 'cake|fq_codel|htb|netem'
-echo -e "\033[38;5;208mCY3ER\033[0m"
+echo -e "\e[38;5;208mCY3ER\e[0m"
 EOF
-      chmod +x $SCRIPT_PATH
+      chmod +x "$SCRIPT_PATH"
       (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH"; echo "@reboot sleep 30 && $SCRIPT_PATH") | crontab -
       echo -e "\n${C_GREEN}اسکریپت بهینه‌سازی TC با موفقیت نصب شد.${C_RESET}"
       echo -e "\n${C_YELLOW}--- اجرای خودکار تست برای تایید نصب ---${C_RESET}"
-      bash $SCRIPT_PATH && echo "تست موفق بود." && tail -5 /var/log/tc_smart.log
+      bash "$SCRIPT_PATH" && echo "تست موفق بود." && tail -5 /var/log/tc_smart.log
       ;;
     2)
-      rm -f $SCRIPT_PATH
+      rm -f "$SCRIPT_PATH"
       crontab -l | grep -v "$SCRIPT_PATH" | crontab -
       echo -e "\n${C_GREEN}اسکریپت بهینه‌سازی TC و Cron Job مربوطه حذف شدند.${C_RESET}"
       ;;
@@ -1310,10 +1406,8 @@ EOF
   read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
-# --- REVISED AND IMPROVED ---
 manage_sysctl() {
   clear
-  # Using a file in sysctl.d is the modern/correct way
   local sysctl_conf_file="/etc/sysctl.d/98-full-optimization.conf"
   
   echo -e "${B_CYAN}--- بهینه سازی هسته (SYSCTL) ---${C_RESET}\n"
@@ -1384,7 +1478,6 @@ fs.file-max = 2097152
 fs.nr_open = 2097152
 net.core.default_qdisc = fq
 EOF
-      # Apply the changes
       if sysctl -p "$sysctl_conf_file"; then
           echo -e "\n${C_GREEN}کانفیگ کامل Sysctl با موفقیت اعمال شد.${C_RESET}"
       else
@@ -1396,7 +1489,6 @@ EOF
           rm -f "$sysctl_conf_file"
           echo -e "\n${C_GREEN}فایل کانفیگ ${sysctl_conf_file} حذف شد.${C_RESET}"
           echo -e "${C_YELLOW}در حال بارگذاری مجدد قوانین Sysctl برای بازگشت به حالت پیش‌فرض...${C_RESET}"
-          # Reload all sysctl configurations to revert the changes
           sysctl --system
           echo -e "\n${C_GREEN}بازگردانی با موفقیت انجام شد.${C_RESET}"
       else
@@ -1409,57 +1501,200 @@ EOF
   read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
 }
 
-manage_mirror_test() {
-    clear
-    echo -e "${B_CYAN}--- یافتن و تنظیم سریع‌ترین مخزن APT ---${C_RESET}\n"
-    if command -v lsb_release &> /dev/null; then
-        UBUNTU_CODENAME=$(lsb_release -cs)
+# --- START: NEW ADVANCED MIRROR TEST ---
+declare -a MIRROR_LIST_CACHE
+
+test_mirror_speed() {
+    local url="$1/ls-lR.gz"
+    local result
+    result=$(wget --timeout=5 --tries=1 -O /dev/null "$url" 2>&1 | grep -o '[0-9.]\+ [KM]B/s' | tail -1)
+
+    if [[ -z $result ]]; then
+        echo "0"
     else
-        UBUNTU_CODENAME="jammy"
-        echo -e "${C_YELLOW}دستور lsb_release یافت نشد، از کدنام پیش‌فرض 'jammy' استفاده می‌شود.${C_RESET}"
+        if [[ $result == *K* ]]; then
+            echo "$result" | sed 's/ KB\/s//'
+        elif [[ $result == *M* ]]; then
+            local speed_mb
+            speed_mb=$(echo "$result" | sed 's/ MB\/s//')
+            if command -v bc &>/dev/null; then
+                 echo "scale=0; $speed_mb * 1024" | bc
+            else
+                 echo $((speed_mb * 1024))
+            fi
+        fi
     fi
-    MIRRORS=(
+}
+
+check_mirror_release_date() {
+    local mirror_url="$1"
+    if ! command -v lsb_release &> /dev/null; then echo "N/A"; return; fi
+    local codename
+    codename=$(lsb_release -cs)
+    local release_url="${mirror_url}/dists/${codename}/Release"
+    local release_info
+    release_info=$(curl --max-time 3 -sI "$release_url" 2>/dev/null | grep -i "last-modified" | head -1)
+
+    if [ -n "$release_info" ]; then
+        echo "$release_info" | sed -e 's/^[Ll]ast-[Mm]odified: //I' -e 's/\r//'
+    else
+        echo "N/A"
+    fi
+}
+
+apply_selected_mirror() {
+    local mirror_url="$1"
+    local mirror_name="$2"
+
+    echo -e "\n${C_YELLOW}در حال اعمال مخزن: $mirror_name...${C_RESET}"
+    backup_file /etc/apt/sources.list
+    
+    if ! command -v lsb_release &> /dev/null; then
+        echo -e "${R}خطا: بسته lsb-release نصب نیست. نمی‌توان فایل sources.list را بروزرسانی کرد.${N}"
+        return 1
+    fi
+
+    local codename
+    codename=$(lsb_release -cs)
+    tee /etc/apt/sources.list > /dev/null <<EOF
+deb ${mirror_url} ${codename} main restricted universe multiverse
+deb ${mirror_url} ${codename}-updates main restricted universe multiverse
+deb ${mirror_url} ${codename}-backports main restricted universe multiverse
+deb ${mirror_url} ${codename}-security main restricted universe multiverse
+EOF
+    
+    echo -e "\n${C_YELLOW}در حال بروزرسانی لیست بسته‌ها...${C_RESET}"
+    if apt-get update -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true; then
+        echo -e "\n${G}✅ مخزن با موفقیت به $mirror_name تغییر یافت و لیست بسته‌ها بروز شد.${N}"
+    else
+        echo -e "\n${R}❌ خطا در بروزرسانی لیست بسته‌ها. در حال بازگردانی به نسخه پشتیبان...${N}"
+        mv /etc/apt/sources.list.bak /etc/apt/sources.list
+        apt-get update
+    fi
+}
+
+choose_custom_mirror_from_list() {
+    echo -e "\n${Y}--- انتخاب دستی مخزن ---${N}"
+    local option_num=1
+    for result in "${MIRROR_LIST_CACHE[@]}"; do
+        local name
+        name=$(echo "$result" | cut -d'|' -f3)
+        local speed
+        speed=$(echo "$result" | cut -d'|' -f1)
+        local mbps
+        if command -v bc &>/dev/null; then
+             mbps=$(echo "scale=2; $speed * 8 / 1024" | bc)
+        else
+             mbps=$((speed * 8 / 1024))
+        fi
+        printf "${G}%2d${N}. %-35s (${C}%.1f Mbps${N})\n" "$option_num" "$name" "$mbps"
+        option_num=$((option_num + 1))
+    done
+
+    read -ep "$(echo -e "${B_MAGENTA}لطفاً شماره مخزن مورد نظر را انتخاب کنید (یا برای لغو Enter بزنید): ${C_RESET}")" custom_choice
+
+    if [[ "$custom_choice" =~ ^[0-9]+$ ]] && [ "$custom_choice" -ge 1 ] && [ "$custom_choice" -lt "$option_num" ]; then
+        local selected_info="${MIRROR_LIST_CACHE[$((custom_choice-1))]}"
+        local selected_mirror
+        selected_mirror=$(echo "$selected_info" | cut -d'|' -f2)
+        local selected_name
+        selected_name=$(echo "$selected_info" | cut -d'|' -f3)
+        apply_selected_mirror "$selected_mirror" "$selected_name"
+    else
+        echo -e "${Y}انتخاب لغو شد.${N}"
+    fi
+}
+
+advanced_mirror_test() {
+    clear
+    echo -e "${B_CYAN}--- آنالیز پیشرفته مخازن APT ---${C_RESET}\n"
+    
+    local mirrors=(
         "https://mirrors.pardisco.co/ubuntu/" "http://mirror.aminidc.com/ubuntu/" "http://mirror.faraso.org/ubuntu/"
         "https://ir.ubuntu.sindad.cloud/ubuntu/" "https://ubuntu-mirror.kimiahost.com/" "https://archive.ubuntu.petiak.ir/ubuntu/"
         "https://ubuntu.hostiran.ir/ubuntuarchive/" "https://ubuntu.bardia.tech/" "https://mirror.iranserver.com/ubuntu/"
         "https://ir.archive.ubuntu.com/ubuntu/" "https://mirror.0-1.cloud/ubuntu/" "http://linuxmirrors.ir/pub/ubuntu/"
         "http://repo.iut.ac.ir/repo/Ubuntu/" "https://ubuntu.shatel.ir/ubuntu/" "http://ubuntu.byteiran.com/ubuntu/"
         "https://mirror.rasanegar.com/ubuntu/" "http://mirrors.sharif.ir/ubuntu/" "http://mirror.ut.ac.ir/ubuntu/"
-        "http://repo.iut.ac.ir/repo/ubuntu/" "http://mirror.asiatech.ir/ubuntu/" "http://mirror.iranserver.com/ubuntu/"
         "http://archive.ubuntu.com/ubuntu/"
     )
-    echo "🔍 در حال بررسی آینه‌های داخلی و جهانی برای Ubuntu ($UBUNTU_CODENAME)..."
-    WORKING_MIRROR=""
-    for MIRROR in "${MIRRORS[@]}"; do
-        echo -n -e "⏳ تست $MIRROR ... "
-        if curl -s --head --max-time 5 "$MIRROR" | grep -q "200 OK"; then
-            echo -e "${C_GREEN}✅ در دسترس${C_RESET}"
-            WORKING_MIRROR=$MIRROR
-            break
-        else
-            echo -e "${C_RED}❌ در دسترس نیست${C_RESET}"
-        fi
+    mirrors=($(printf "%s\n" "${mirrors[@]}" | awk '!x[$0]++'))
+
+    echo -e "${Y}فاز ۱: تست سرعت و تاریخ بروزرسانی ${#mirrors[@]} مخزن...${N}"
+    local temp_speed_file="/tmp/mirror_speeds_$$"
+    
+    for mirror in "${mirrors[@]}"; do
+        (
+            local speed
+            speed=$(test_mirror_speed "$mirror")
+            if [[ "$speed" != "0" ]]; then
+                local release_date
+                release_date=$(check_mirror_release_date "$mirror")
+                local name
+                name=$(echo "$mirror" | sed -E 's/https?:\/\///' | sed -E 's/(\.com|\.ir|\.co|\.tech|\.org|\.net|\.ac\.ir|\.cloud).*//' | sed -E 's/(mirrors?|archive|ubuntu|repo)\.//g' | awk '{print toupper(substr($0,1,1))substr($0,2)}')
+                echo "$speed|$mirror|$name|$release_date" >> "$temp_speed_file"
+                echo -n -e "${G}.${N}"
+            else
+                echo -n -e "${R}x${N}"
+            fi
+        ) &
     done
-    if [ -z "$WORKING_MIRROR" ]; then
-        echo -e "\n${C_RED}🚫 هیچ مخزن قابل دسترسی یافت نشد. لطفاً اتصال اینترنت یا فایروال را بررسی کنید.${C_RESET}"
-        read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
-        return
+    wait
+    echo -e "\n\n${G}فاز ۱ تکمیل شد.${N}"
+
+    if [ ! -s "$temp_speed_file" ]; then
+        echo -e "\n${R}[X] هیچ مخزن فعالی یافت نشد. لطفاً اتصال اینترنت را بررسی کنید.${N}"
+        rm -f "$temp_speed_file"
+        return 1
     fi
-    echo -e "\n🛠 ${C_YELLOW}در حال تنظیم فایل /etc/apt/sources.list با آینه:${C_RESET}"
-    echo -e "    ${C_CYAN}$WORKING_MIRROR${C_RESET}"
-    backup_file /etc/apt/sources.list
-    tee /etc/apt/sources.list > /dev/null <<EOF
-deb ${WORKING_MIRROR} ${UBUNTU_CODENAME} main restricted universe multiverse
-deb ${WORKING_MIRROR} ${UBUNTU_CODENAME}-updates main restricted universe multiverse
-deb ${WORKING_MIRROR} ${UBUNTU_CODENAME}-backports main restricted universe multiverse
-deb ${WORKING_MIRROR} ${UBUNTU_CODENAME}-security main restricted universe multiverse
-EOF
-    echo ""
-    echo -e "${C_GREEN}✅ فایل sources.list با موفقیت تنظیم شد.${C_RESET}"
-    echo -e "${C_YELLOW}📦 حالا می‌توانید سیستم خود را با دستور زیر آپدیت کنید:${C_RESET}"
-    echo -e "\n    apt update\n"
+
+    mapfile -t MIRROR_LIST_CACHE < <(sort -t'|' -k1 -nr "$temp_speed_file")
+    rm -f "$temp_speed_file"
+
+    echo -e "\n${Y}--- نتایج آنالیز مخازن (مرتب شده بر اساس سرعت) ---${N}"
+    printf "%-4s %-35s %-15s %-30s\n" "رتبه" "نام مخزن" "سرعت (Mbps)" "تاریخ بروزرسانی"
+    printf "%.0s-" {1..90}; echo
+
+    local rank=1
+    for result in "${MIRROR_LIST_CACHE[@]}"; do
+        local speed name release_date mbps
+        speed=$(echo "$result" | cut -d'|' -f1)
+        name=$(echo "$result" | cut -d'|' -f3)
+        release_date=$(echo "$result" | cut -d'|' -f4)
+        if command -v bc &>/dev/null; then
+             mbps=$(echo "scale=2; $speed * 8 / 1024" | bc)
+        else
+             mbps=$((speed * 8 / 1024))
+        fi
+        
+        printf "%-4s %-35s ${G}%-15s${N} %-30s\n" "$rank." "$name" "$mbps" "$release_date"
+        rank=$((rank + 1))
+    done
+    printf "%.0s-" {1..90}; echo
+
+    local best_mirror_info="${MIRROR_LIST_CACHE[0]}"
+    local best_mirror_url
+    best_mirror_url=$(echo "$best_mirror_info" | cut -d'|' -f2)
+    local best_mirror_name
+    best_mirror_name=$(echo "$best_mirror_info" | cut -d'|' -f3)
+
+    echo -e "\n${B_CYAN}--- گزینه‌ها ---${C_RESET}"
+    echo -e "${C_YELLOW}1) ${C_WHITE} اعمال سریع‌ترین مخزن (${best_mirror_name})"
+    echo -e "${C_YELLOW}2) ${C_WHITE} انتخاب دستی یک مخزن از لیست"
+    echo -e "${C_YELLOW}3) ${C_WHITE} بازگشت به منوی بهینه‌سازی"
+    echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+    read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" mirror_choice
+
+    case $mirror_choice in
+        1) apply_selected_mirror "$best_mirror_url" "$best_mirror_name" ;;
+        2) choose_custom_mirror_from_list ;;
+        3) return ;;
+        *) echo -e "${R}گزینه نامعتبر است!${N}" ;;
+    esac
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
+# --- END: NEW ADVANCED MIRROR TEST ---
+
 
 ping_test_ips() {
     clear
@@ -1494,7 +1729,6 @@ ping_iran_hosts() {
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
-# --- REVISED AND IMPROVED ---
 port_scanner_menu() {
     clear
     echo -e "${B_CYAN}--- اسکنر پورت ---${C_RESET}\n"
@@ -1775,6 +2009,7 @@ scan_warp_endpoints() {
     )
 
     for endpoint in "${ENDPOINTS[@]}"; do
+        local ip_host port
         if [[ $endpoint == \[* ]]; then
             ip_host=$(echo "$endpoint" | cut -d']' -f1 | tr -d '[')
             port=$(echo "$endpoint" | cut -d']' -f2 | tr -d ':')
@@ -1784,7 +2019,8 @@ scan_warp_endpoints() {
         fi
         echo -ne "    ${C_YELLOW}تست اندپوینت: ${ip_host}:${port}   \r${C_RESET}"
         if nc -u -z -w 1 "$ip_host" "$port" &> /dev/null; then
-            local ping_avg=$(ping -c 1 -W 1 "$ip_host" | tail -1 | awk -F '/' '{print $5}' 2>/dev/null)
+            local ping_avg
+            ping_avg=$(ping -c 1 -W 1 "$ip_host" | tail -1 | awk -F '/' '{print $5}' 2>/dev/null)
             if [ -n "$ping_avg" ]; then
                 echo -e "    ${C_GREEN}✅ اندپوینت فعال: ${ip_host}:${port} | پینگ: ${ping_avg} ms${C_RESET}          "
             else
@@ -1824,7 +2060,6 @@ manage_ip_health_check() {
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
 }
 
-# --- Iperf3 Interactive Test Function ---
 run_iperf3_test() {
     clear
     echo -e "${B_CYAN}--- ابزار تست سرعت خودکار iperf3 ---${C_RESET}\n"
@@ -1844,7 +2079,8 @@ run_iperf3_test() {
 
     case $iperf_choice in
         1)
-            local public_ip=$(curl -s -4 ifconfig.me || ip -4 addr show scope global | awk '{print $2}' | cut -d/ -f1 | head -n1)
+            local public_ip
+            public_ip=$(curl -s -4 ifconfig.me || ip -4 addr show scope global | awk '{print $2}' | cut -d/ -f1 | head -n1)
             clear
             echo -e "${B_YELLOW}حالت سرور انتخاب شد.${C_RESET}"
             echo -e "\n${C_WHITE}آدرس IP عمومی این سرور: ${C_GREEN}${public_ip}${C_RESET}"
@@ -1890,7 +2126,7 @@ manage_network_optimization() {
         echo -e "${C_YELLOW}2) ${C_WHITE}بهینه سازی هسته (SYSCTL)"
         echo -e "${C_YELLOW}3) ${B_YELLOW}بهینه سازی بستر شبکه (پیشرفته)"
         echo -e "${C_YELLOW}4) ${C_WHITE}مدیریت و یافتن بهترین DNS"
-        echo -e "${C_YELLOW}5) ${C_WHITE}یافتن سریعترین مخزن APT"
+        echo -e "${C_YELLOW}5) ${C_WHITE}یافتن سریعترین مخزن APT (پیشرفته)"
         echo -e "${C_YELLOW}6) ${C_WHITE}تست پینگ سرورهای DNS"
         echo -e "${C_YELLOW}7) ${C_WHITE}پینگ خارج به داخل"
         echo -e "${C_YELLOW}8) ${C_WHITE}پینگ داخل به خارج"
@@ -1903,7 +2139,7 @@ manage_network_optimization() {
             2) manage_sysctl ;;
             3) run_as_bbr_optimization ;;
             4) manage_dns ;;
-            5) manage_mirror_test ;;
+            5) advanced_mirror_test ;;
             6) ping_test_ips ;;
             7) ping_iran_hosts ;;
             8) ping_external_hosts ;;
@@ -1914,14 +2150,13 @@ manage_network_optimization() {
     done
 }
 
-# +++ START: BUGFIX - ADDED MISSING FUNCTION +++
 manage_ssh_port() {
     clear
     local sshd_config="/etc/ssh/sshd_config"
     echo -e "${B_CYAN}--- تغییر پورت SSH ---${C_RESET}\n"
     
-    # Get current port
-    local current_port=$(grep -i "^#*port" "$sshd_config" | tail -n 1 | awk '{print $2}')
+    local current_port
+    current_port=$(grep -i "^#*port" "$sshd_config" | tail -n 1 | awk '{print $2}')
     echo -e "${C_WHITE}پورت SSH فعلی: ${C_GREEN}${current_port:-22}${C_RESET}"
     
     read -ep "$(echo -e "${B_MAGENTA}پورت جدید SSH را وارد کنید (یا برای لغو Enter بزنید): ${C_RESET}")" new_port
@@ -1934,14 +2169,11 @@ manage_ssh_port() {
         echo -e "\n${C_YELLOW}در حال تغییر پورت به ${new_port}...${C_RESET}"
         backup_file "$sshd_config"
         
-        # Comment out all existing Port lines and add the new one
         sed -i -E 's/^[ ]*#?[ ]*Port[ ].*/#&/' "$sshd_config"
-        # Add the new port setting
         echo "Port ${new_port}" >> "$sshd_config"
         
         echo -e "\n${C_GREEN}پورت در فایل کانفیگ SSH تغییر یافت.${C_RESET}"
         
-        # Open port in UFW if active
         if command -v ufw &> /dev/null && ufw status | grep -q "Status: active"; then
             echo -e "${C_YELLOW}فایروال UFW فعال است. در حال افزودن قانون برای پورت ${new_port}...${C_RESET}"
             ufw allow "${new_port}/tcp"
@@ -1955,7 +2187,6 @@ manage_ssh_port() {
     
     read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
 }
-# +++ END: BUGFIX +++
 
 manage_security() {
     while true; do
@@ -1976,7 +2207,7 @@ manage_security() {
         case $choice in
             1) manage_firewall ;;
             2) manage_ssh_root ;;
-            3) manage_ssh_port ;; # This now works
+            3) manage_ssh_port ;;
             4) manage_ipv6 ;;
             5) manage_reboot_cron ;;
             6) port_scanner_menu ;;
@@ -2063,10 +2294,32 @@ manage_rat_hole_tunnel() {
 }
 
 # --- SCRIPT MAIN LOOP ---
+check_dependencies_at_start() {
+    local missing=""
+    command -v curl >/dev/null 2>&1 || missing+=" curl"
+    command -v wget >/dev/null 2>&1 || missing+=" wget"
+    command -v bc >/dev/null 2>&1 || missing+=" bc"
+    command -v jq >/dev/null 2>&1 || missing+=" jq"
+    command -v lsb_release >/dev/null 2>&1 || missing+=" lsb-release"
+    command -v iptables >/dev/null 2>&1 || missing+=" iptables"
+
+
+    if [ -n "$missing" ]; then
+        echo -e "${R}بسته‌های پیش‌نیاز یافت نشدند:$missing${N}"
+        echo -e "لطفاً با دستور 'apt install$missing' آنها را نصب کنید یا از گزینه 3 منوی اصلی استفاده کنید."
+        read -n 1 -s -r -p "برای خروج کلیدی را فشار دهید..."
+        exit 1
+    fi
+}
+
+check_dependencies_at_start
+clear
+progress_bar "درحال بارگذاری اسکریپت..." 2
+
 while true; do
   clear
   show_banner
-  show_system_status_header
+  show_enhanced_system_status
 
   echo -e "   ${C_YELLOW}1) ${B_CYAN}بهینه سازی شبکه و اتصال"
   echo -e "   ${C_YELLOW}2) ${B_CYAN}امنیت و دسترسی"
