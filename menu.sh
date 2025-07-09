@@ -1420,6 +1420,8 @@ manage_sysctl() {
   case $choice in
     1)
       echo -e "\n${C_YELLOW}در حال اعمال کانفیگ بهینه سازی در فایل ${sysctl_conf_file}...${C_RESET}"
+      
+      # ابتدا تنظیمات اصلی و بدون ریسک را می‌نویسیم
       cat > "$sysctl_conf_file" << 'EOF'
 # Full System Optimization by Script
 net.core.rmem_max = 134217728
@@ -1468,8 +1470,6 @@ net.ipv4.conf.default.send_redirects = 0
 net.ipv4.conf.all.log_martians = 0
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.icmp_ignore_bogus_error_responses = 1
-net.netfilter.nf_conntrack_max = 1048576
-net.netfilter.nf_conntrack_tcp_timeout_established = 432000
 vm.swappiness = 10
 vm.dirty_ratio = 10
 vm.dirty_background_ratio = 5
@@ -1478,10 +1478,24 @@ fs.file-max = 2097152
 fs.nr_open = 2097152
 net.core.default_qdisc = fq
 EOF
+
+      # **بخش هوشمند**: بررسی می‌کنیم که ماژول نت فیلتر فعال است یا نه
+      if lsmod | grep -q 'nf_conntrack'; then
+          echo -e "${C_GREEN}ماژول Netfilter (nf_conntrack) فعال است. در حال افزودن تنظیمات مربوطه...${C_RESET}"
+          # اگر فعال بود، تنظیمات مربوطه را به انتهای فایل اضافه می‌کنیم
+          cat >> "$sysctl_conf_file" << EOF
+net.netfilter.nf_conntrack_max = 1048576
+net.netfilter.nf_conntrack_tcp_timeout_established = 432000
+EOF
+      else
+          echo -e "${C_YELLOW}ماژول Netfilter (nf_conntrack) فعال نیست. از تنظیمات مربوطه صرف نظر شد.${C_RESET}"
+      fi
+
+      # در نهایت، تمام تنظیمات موجود در فایل را با یک دستور اعمال می‌کنیم
       if sysctl -p "$sysctl_conf_file"; then
           echo -e "\n${C_GREEN}کانفیگ کامل Sysctl با موفقیت اعمال شد.${C_RESET}"
       else
-          echo -e "\n${C_RED}خطا در اعمال تنظیمات Sysctl.${C_RESET}"
+          echo -e "\n${C_RED}خطا در اعمال تنظیمات Sysctl. لطفاً خروجی را بررسی کنید.${C_RESET}"
       fi
       ;;
     2)
