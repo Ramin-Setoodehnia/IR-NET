@@ -6,8 +6,9 @@
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/github/stars/cy33r/IR-NET?style=social" alt="GitHub Stars">
 
+    
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/3d059f11-bddb-4411-822e-ed8db6398e62" alt="IR-NET-Logo"/>
+  <img src="https://github.com/user-attachments/assets/cd6d7d6a-79da-4e5a-a1d6-fb38e261bca2" alt="IR-NET-Logo"/>
 </p>
 
 <h1 align="center">IR-NET - مجموعه ابزار مدیریت سرور اوبونتو</h1>
