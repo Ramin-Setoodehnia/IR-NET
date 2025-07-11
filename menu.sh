@@ -84,8 +84,12 @@ check_ipv6_status() {
     fi
 }
 
+# FIXED: IMPROVED PING STATUS CHECK
 check_ping_status() {
-    if iptables -C INPUT -p icmp --icmp-type echo-request -j DROP 2>/dev/null; then
+    # This improved function now checks the full iptables ruleset for common ICMP block patterns.
+    if iptables -S INPUT 2>/dev/null | grep -q -- "-p icmp .* --icmp-type 8/echo-request -j \(DROP\|REJECT\)"; then
+        echo "blocked"
+    elif [[ $(iptables -P INPUT 2>/dev/null) == "DROP" ]] && ! iptables -S INPUT 2>/dev/null | grep -q -- "-p icmp .* --icmp-type 8/echo-request -j ACCEPT"; then
         echo "blocked"
     else
         echo "allowed"
@@ -126,10 +130,10 @@ show_enhanced_system_status() {
 
     # Network Info
     local net_info ip_addr="N/A" location="N/A" provider="N/A" dns_servers="N/A"
-    local net_status="${R}Unavailable${N}"
+    local net_status="${R}UNAVAILABLE${N}"
     if net_info=$(curl -s --connect-timeout 4 http://ip-api.com/json); then
         if [[ $(echo "$net_info" | jq -r .status 2>/dev/null) == "success" ]]; then
-            net_status="${G}Available${N}"
+            net_status="${G}AVAILABLE${N}"
             ip_addr=$(echo "$net_info" | jq -r .query)
             location="$(echo "$net_info" | jq -r .city), $(echo "$net_info" | jq -r .country)"
             provider=$(echo "$net_info" | jq -r .isp)
@@ -143,9 +147,9 @@ show_enhanced_system_status() {
     [ -z "$dns_servers" ] && dns_servers="N/A"
 
     # Status Formatting
-    local ipv6_display="${ipv6_status_val^}"
+    local ipv6_display="${ipv6_status_val^^}" # Uppercase
     [[ "$ipv6_status_val" == "enabled" ]] && ipv6_display="${G}${ipv6_display}${N}" || ipv6_display="${R}${ipv6_display}${N}"
-    local ping_display="${ping_status_val^}"
+    local ping_display="${ping_status_val^^}" # Uppercase
     [[ "$ping_status_val" == "allowed" ]] && ping_display="${G}${ping_display}${N}" || ping_display="${R}${ping_display}${N}"
 
     # Prepare labels and values for the table
@@ -331,6 +335,7 @@ wait_for_dpkg_lock() {
     while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
         if [[ "$waited" -ge "$max_wait" ]]; then
             log_message ERROR "Timeout waiting for package manager"
+            log_message ERROR "Please manually kill the apt/dpkg process and try again."
             return 1
         fi
         if [[ $((waited % 30)) -eq 0 ]]; then
@@ -456,8 +461,7 @@ install_dependencies() {
             log_message ERROR "Could not acquire package lock"
             return 1
         fi
-        pkill -9 apt-get apt dpkg 2>/dev/null || true
-        rm -f /var/lib/dpkg/lock* /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null
+        # FIXED: Removed risky pkill -9 command. wait_for_dpkg_lock is the safer way.
         dpkg --configure -a 2>/dev/null || true
     fi
     log_message INFO "Updating package lists..."
@@ -928,9 +932,9 @@ run_diagnostics() {
     local interface="${PRIMARY_INTERFACE:-$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')}"
     clear
     printf "\n%s╔════════════════════════════════════════╗%s\n" "$AS_CYAN" "$AS_NC"
-    printf "%s║           Network Diagnostics         ║%s\n" "$AS_CYAN" "$AS_NC"
+    printf "%s║           NETWORK DIAGNOSTICS         ║%s\n" "$AS_CYAN" "$AS_NC"
     printf "%s╚════════════════════════════════════════╝%s\n\n" "$AS_CYAN" "$AS_NC"
-    printf "%s┌─ [1] Network Interface Status%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [1] NETWORK INTERFACE STATUS%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
     if [[ -n "$interface" ]]; then
         printf "%s│%s Interface: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "$interface" "$AS_NC"
         local ip_info speed duplex link_status mtu
@@ -969,7 +973,7 @@ run_diagnostics() {
         printf "%s│%s %sNo interface detected%s\n" "$AS_YELLOW" "$AS_NC" "$AS_RED" "$AS_NC"
     fi
     printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
-    printf "%s┌─ [2] DNS Resolution Test%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [2] DNS RESOLUTION TEST%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
     local dns_pids=()
     for dns in "${TARGET_DNS[@]}"; do
         { local result="FAIL"; local time_taken="N/A"; if command -v dig &>/dev/null; then local dig_output; dig_output=$(dig +short +time=2 +tries=1 google.com @"$dns" 2>/dev/null); if [[ -n "$dig_output" ]] && [[ "$dig_output" != *"connection timed out"* ]]; then result="OK"; local query_time; query_time=$(dig +noall +stats google.com @"$dns" 2>/dev/null | grep "Query time:" | awk '{print $4}'); if [[ -n "$query_time" ]]; then time_taken="${query_time}ms"; fi; fi; else if nslookup google.com "$dns" &>/dev/null; then result="OK"; fi; fi; echo "$dns|$result|$time_taken" > "/tmp/dns_test_$$_$dns"; } &
@@ -978,20 +982,20 @@ run_diagnostics() {
     for pid in "${dns_pids[@]}"; do wait "$pid" 2>/dev/null || true; done
     for dns in "${TARGET_DNS[@]}"; do if [[ -f "/tmp/dns_test_$$_$dns" ]]; then local dns_result; IFS='|' read -r dns_ip status query_time < "/tmp/dns_test_$$_$dns"; if [[ "$status" = "OK" ]]; then printf "%s│%s %s%s%s (%s) - %s%s%s" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "✓" "$AS_NC" "$dns_ip" "$AS_GREEN" "$status" "$AS_NC"; if [[ "$query_time" != "N/A" ]]; then printf " [%s]" "$query_time"; fi; printf "\n"; else printf "%s│%s %s%s%s (%s) - %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_RED" "✗" "$AS_NC" "$dns_ip" "$AS_RED" "$status" "$AS_NC"; fi; rm -f "/tmp/dns_test_$$_$dns"; fi; done
     printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
-    printf "%s┌─ [3] Internet Connectivity%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [3] INTERNET CONNECTIVITY%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
     local test_hosts=("google.com" "github.com" "cloudflare.com" "quad9.net"); local conn_pids=()
     for host in "${test_hosts[@]}"; do { local result="FAIL"; local rtt="N/A"; local ping_output; ping_output=$(ping -c 1 -W 3 "$host" 2>/dev/null); if [[ $? -eq 0 ]]; then result="OK"; rtt=$(echo "$ping_output" | grep "time=" | sed 's/.*time=\([0-9.]*\).*/\1/'); if [[ -n "$rtt" ]]; then rtt="${rtt}ms"; fi; fi; echo "$host|$result|$rtt" > "/tmp/conn_test_$$_${host//\./_}"; } & conn_pids+=($!); done
     for pid in "${conn_pids[@]}"; do wait "$pid" 2>/dev/null || true; done
     for host in "${test_hosts[@]}"; do local temp_file="/tmp/conn_test_$$_${host//\./_}"; if [[ -f "$temp_file" ]]; then local conn_result; IFS='|' read -r hostname status rtt < "$temp_file"; if [[ "$status" = "OK" ]]; then printf "%s│%s %s%s%s %-15s - %s%s%s" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "✓" "$AS_NC" "$hostname" "$AS_GREEN" "$status" "$AS_NC"; if [[ "$rtt" != "N/A" ]]; then printf " [%s]" "$rtt"; fi; printf "\n"; else printf "%s│%s %s%s%s %-15s - %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_RED" "✗" "$AS_NC" "$hostname" "$AS_RED" "$status" "$AS_NC"; fi; rm -f "$temp_file"; fi; done
     printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
-    printf "%s┌─ [4] Network Configuration%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [4] NETWORK CONFIGURATION%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
     local current_cc available_cc; current_cc=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo "Unknown"); available_cc=$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || echo "Unknown")
     printf "%s│%s TCP Congestion Control: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "$current_cc" "$AS_NC"
     printf "%s│%s Available Algorithms: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_CYAN" "$available_cc" "$AS_NC"
     local default_route gateway; default_route=$(ip route show default 2>/dev/null | head -1)
     if [[ -n "$default_route" ]]; then gateway=$(echo "$default_route" | awk '{print $3}'); printf "%s│%s Default Gateway: %s%s%s\n" "$AS_YELLOW" "$AS_NC" "$AS_GREEN" "${gateway:-Unknown}" "$AS_NC"; fi
     printf "%s└─%s\n\n" "$AS_YELLOW" "$AS_NC"
-    printf "%s┌─ [5] Performance Test%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
+    printf "%s┌─ [5] PERFORMANCE TEST%s\n" "$AS_YELLOW" "$AS_NC"; printf "%s│%s\n" "$AS_YELLOW" "$AS_NC"
     printf "%s│%s Testing packet loss and latency...\n" "$AS_YELLOW" "$AS_NC"
     local ping_result; ping_result=$(ping -c 10 -i 0.2 8.8.8.8 2>/dev/null)
     if [[ $? -eq 0 ]]; then
@@ -1043,7 +1047,7 @@ show_advanced_menu_as_bbr() {
         printf "%s۱. بهینه سازی دستی MTU%s\n" "$AS_GREEN" "$AS_NC"
         printf "%s۲. تنظیمات سفارشی DNS%s\n" "$AS_GREEN" "$AS_NC"
         printf "%s۳. تنظیمات کنترل ازدحام TCP%s\n" "$AS_GREEN" "$AS_NC"
-        printf "%s۴. تنظیمات رابط شبکه%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۴. تنظیمات رابط شبکه (NIC)%s\n" "$AS_GREEN" "$AS_NC"
         printf "%s۵. مشاهده بهینه سازی های فعلی%s\n" "$AS_GREEN" "$AS_NC"
         printf "%s0. بازگشت به منوی قبلی%s\n\n" "$AS_GREEN" "$AS_NC"
         read -erp "لطفا گزینه خود را وارد کنید (0-5): " choice
@@ -1092,11 +1096,11 @@ show_as_bbr_menu() {
         clear
         log_message INFO "Displaying main menu."
         printf "%sگزینه های موجود:%s\n" "$AS_CYAN" "$AS_NC"
-        printf "%s۱.اعمال بهینه سازی هوشمند%s\n" "$AS_GREEN" "$AS_NC"
-        printf "%s۲.اجرای ابزار تشخیص شبکه%s\n" "$AS_GREEN" "$AS_NC"
-        printf "%s۳.گزینه های پیشرفته%s\n" "$AS_GREEN" "$AS_NC"
-        printf "%s۴.بازگردانی به تنظیمات اولیه%s\n" "$AS_GREEN" "$AS_NC"
-        printf "%s0.بازگشت به منوی اصلی%s\n\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۱. اعمال بهینه سازی هوشمند (INTELLIGENT OPTIMIZATION)%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۲. اجرای ابزار تشخیص شبکه (NETWORK DIAGNOSTICS)%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۳. گزینه های پیشرفته (ADVANCED OPTIONS)%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s۴. بازگردانی به تنظیمات اولیه (RESTORE DEFAULTS)%s\n" "$AS_GREEN" "$AS_NC"
+        printf "%s0. بازگشت به منوی اصلی%s\n\n" "$AS_GREEN" "$AS_NC"
         read -erp "لطفا گزینه خود را وارد کنید (0-4): " choice
         case "$choice" in
             1)
@@ -1331,8 +1335,8 @@ install_core_packages() {
 manage_reboot_cron() {
   clear
   echo -e "${B_CYAN}--- مدیریت ریبوت خودکار سرور ---${C_RESET}\n"
-  echo -e "${C_YELLOW}1)${C_WHITE} افزودن Cron Job برای ریبوت هر 12 ساعت"
-  echo -e "${C_YELLOW}2)${C_WHITE} حذف Cron Job ریبوت خودکار"
+  echo -e "${C_YELLOW}1)${C_WHITE} افزودن CRON JOB برای ریبوت هر 12 ساعت"
+  echo -e "${C_YELLOW}2)${C_WHITE} حذف CRON JOB ریبوت خودکار"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
   read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
@@ -1722,9 +1726,9 @@ ping_test_ips() {
     for ip in "${ips[@]}"; do
         ping -c 1 -W 1 "$ip" &> /dev/null
         if [ $? -eq 0 ]; then
-            echo -e "Ping to ${C_YELLOW}$ip${C_RESET}: ${C_GREEN}موفق (Successful)${C_RESET}"
+            echo -e "PING to ${C_YELLOW}$ip${C_RESET}: ${C_GREEN}موفق (SUCCESSFUL)${C_RESET}"
         else
-            echo -e "Ping to ${C_YELLOW}$ip${C_RESET}: ${C_RED}ناموفق (Failed)${C_RESET}"
+            echo -e "PING to ${C_YELLOW}$ip${C_RESET}: ${C_RED}ناموفق (FAILED)${C_RESET}"
         fi
     done
     read -n 1 -s -r -p "\nبرای ادامه، کلیدی را فشار دهید..."
@@ -1746,28 +1750,28 @@ ping_iran_hosts() {
 port_scanner_menu() {
     clear
     echo -e "${B_CYAN}--- اسکنر پورت ---${C_RESET}\n"
-    echo -e "${C_YELLOW}1)${C_WHITE} نصب ابزار مورد نیاز (nmap)"
-    echo -e "${C_YELLOW}2)${C_WHITE} اسکن سریع پورت‌های باز با nmap (پیشنهادی)"
+    echo -e "${C_YELLOW}1)${C_WHITE} نصب ابزار مورد نیاز (NMAP)"
+    echo -e "${C_YELLOW}2)${C_WHITE} اسکن سریع پورت‌های باز با NMAP (پیشنهادی)"
     echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
     case $choice in
         1)
-            echo -e "\n${C_YELLOW}در حال نصب nmap...${C_RESET}"
+            echo -e "\n${C_YELLOW}در حال نصب NMAP...${C_RESET}"
             apt-get update
             apt-get install -y nmap
-            echo -e "\n${C_GREEN}ابزار nmap با موفقیت نصب شد.${C_RESET}"
+            echo -e "\n${C_GREEN}ابزار NMAP با موفقیت نصب شد.${C_RESET}"
             ;;
         2)
             read -ep "$(echo -e "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}")" target_ip
             if ! is_valid_ip "$target_ip"; then
                 echo -e "\n${C_RED}خطا: آدرس IP وارد شده معتبر نیست.${C_RESET}"
             elif ! command -v nmap &> /dev/null; then
-                echo -e "\n${C_RED}خطا: nmap نصب نیست. لطفاً ابتدا از گزینه ۱ آن را نصب کنید.${C_RESET}"
+                echo -e "\n${C_RED}خطا: NMAP نصب نیست. لطفاً ابتدا از گزینه ۱ آن را نصب کنید.${C_RESET}"
             else
-                echo -e "\n${C_YELLOW}در حال اسکن سریع پورت‌های باز روی $target_ip با nmap...${C_RESET}"
+                echo -e "\n${C_YELLOW}در حال اسکن سریع پورت‌های باز روی $target_ip با NMAP...${C_RESET}"
                 nmap -p- --open "$target_ip"
-                echo -e "\n${C_GREEN}اسکن با nmap به پایان رسید.${C_RESET}"
+                echo -e "\n${C_GREEN}اسکن با NMAP به پایان رسید.${C_RESET}"
             fi
             ;;
         3) return ;;
@@ -1958,10 +1962,10 @@ manage_xui_offline_install() {
 scan_arvan_ranges() {
     clear
     if ! command -v nmap &> /dev/null; then
-        echo -e "${C_YELLOW}ابزار nmap برای این کار لازم است. در حال نصب...${C_RESET}"
+        echo -e "${C_YELLOW}ابزار NMAP برای این کار لازم است. در حال نصب...${C_RESET}"
         apt-get update
         apt-get install -y nmap
-        echo -e "${C_GREEN}nmap با موفقیت نصب شد.${C_RESET}"
+        echo -e "${C_GREEN}NMAP با موفقیت نصب شد.${C_RESET}"
         sleep 2
         clear
     fi
@@ -1975,7 +1979,7 @@ scan_arvan_ranges() {
 
     for range in "${RANGES[@]}"; do
         echo
-        read -ep "$(echo -e "${B_YELLOW}--> برای اسکن رنج [${C_CYAN}${range}${B_YELLOW}] کلید Enter را بزنید (s=رد کردن, q=خروج): ${C_RESET}")" choice
+        read -ep "$(echo -e "${B_YELLOW}--> برای اسکن رنج [${C_CYAN}${range}${B_YELLOW}] کلید ENTER را بزنید (s=رد کردن, q=خروج): ${C_RESET}")" choice
         case "$choice" in
             s|S) continue;;
             q|Q) break;;
@@ -2001,15 +2005,15 @@ scan_arvan_ranges() {
 scan_warp_endpoints() {
     clear
     if ! command -v nc &> /dev/null; then
-        echo -e "${C_YELLOW}ابزار netcat (nc) برای این کار لازم است. در حال نصب...${C_RESET}"
+        echo -e "${C_YELLOW}ابزار NETCAT (nc) برای این کار لازم است. در حال نصب...${C_RESET}"
         apt-get update
         apt-get install -y netcat-openbsd
-        echo -e "${C_GREEN}netcat با موفقیت نصب شد.${C_RESET}"
+        echo -e "${C_GREEN}NETCAT با موفقیت نصب شد.${C_RESET}"
         sleep 2
         clear
     fi
 
-    echo -e "${B_CYAN}--- اسکن اندپوینت های وارپ ---${C_RESET}\n"
+    echo -e "${B_CYAN}--- اسکن اندپوینت های WARP ---${C_RESET}\n"
     local ENDPOINTS=(
         "162.159.192.19:1701" "188.114.98.61:955" "188.114.96.137:988" "188.114.99.66:4198"
         "188.114.99.212:1074" "188.114.98.224:4500" "188.114.98.224:878" "188.114.98.224:1387"
@@ -2051,9 +2055,9 @@ manage_ip_health_check() {
     while true; do
         clear
         echo -e "${B_CYAN}--- تشخیص سالم بودن آی پی ---${C_RESET}\n"
-        echo -e "${C_YELLOW}1)${C_WHITE} تست اول (ip.check.place)"
-        echo -e "${C_YELLOW}2)${C_WHITE} تست دوم (bench.openode.xyz)"
-        echo -e "${C_YELLOW}3)${C_WHITE} تست سوم (git.io/JRw8R)"
+        echo -e "${C_YELLOW}1)${C_WHITE} تست اول (IP.CHECK.PLACE)"
+        echo -e "${C_YELLOW}2)${C_WHITE} تست دوم (BENCH.OPENODE.XYZ)"
+        echo -e "${C_YELLOW}3)${C_WHITE} تست سوم (GIT.IO/JRW8R)"
         echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی امنیت"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
@@ -2076,7 +2080,7 @@ manage_ip_health_check() {
 
 run_iperf3_test() {
     clear
-    echo -e "${B_CYAN}--- ابزار تست سرعت خودکار iperf3 ---${C_RESET}\n"
+    echo -e "${B_CYAN}--- ابزار تست سرعت خودکار IPERF3 ---${C_RESET}\n"
     if ! command -v iperf3 &> /dev/null; then
         echo -e "${C_YELLOW}ابزار iperf3 نصب نیست. در حال نصب...${C_RESET}"
         apt-get update > /dev/null 2>&1
@@ -2096,7 +2100,7 @@ run_iperf3_test() {
             local public_ip
             public_ip=$(curl -s -4 ifconfig.me || ip -4 addr show scope global | awk '{print $2}' | cut -d/ -f1 | head -n1)
             clear
-            echo -e "${B_YELLOW}حالت سرور انتخاب شد.${C_RESET}"
+            echo -e "${B_YELLOW}حالت سرور (SERVER MODE) انتخاب شد.${C_RESET}"
             echo -e "\n${C_WHITE}آدرس IP عمومی این سرور: ${C_GREEN}${public_ip}${C_RESET}"
             echo -e "${C_WHITE}این آدرس را در سرور کلاینت (ایران) خود وارد کنید."
             echo -e "\n${C_YELLOW}برای شروع تست، iperf3 در حالت سرور اجرا می‌شود..."
@@ -2106,7 +2110,7 @@ run_iperf3_test() {
             ;;
         2)
             clear
-            echo -e "${B_YELLOW}حالت کلاینت انتخاب شد.${C_RESET}\n"
+            echo -e "${B_YELLOW}حالت کلاینت (CLIENT MODE) انتخاب شد.${C_RESET}\n"
             read -ep "$(echo -e "${B_MAGENTA}لطفاً آدرس IP سرور مقصد (سرور خارج) را وارد کنید: ${C_RESET}")" server_ip
             if ! is_valid_ip "$server_ip"; then
                 echo -e "\n${C_RED}خطا: آدرس IP وارد شده معتبر نیست.${C_RESET}"
@@ -2129,6 +2133,132 @@ run_iperf3_test() {
     read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
 }
 
+# START: **FULLY FIXED AND PERSIANIZED** DNS CHANGER SUBMENU FUNCTION
+manage_sanction_dns() {
+    clear
+    echo -e "${B_CYAN}--- دی ان اس رفع تحریم داخلی ---${C_RESET}\n"
+
+    # --- DNS Providers ---
+    # FIXED: provider names are now uppercase to match the logic
+    local -a providers=("SHECAN" "RADAR" "ELECTRO" "BEGZAR" "DNS PRO" "403" "GOOGLE" "CLOUDFLARE" "RESET TO DEFAULT")
+    # FIXED: associative array keys are now uppercase to fix the critical bug
+    local -A dns_servers=(
+        ["SHECAN"]="178.22.122.100 185.51.200.2"
+        ["RADAR"]="10.202.10.10 10.202.10.11"
+        ["ELECTRO"]="78.157.42.100 78.157.42.101"
+        ["BEGZAR"]="185.55.226.26 185.55.226.25"
+        ["DNS PRO"]="87.107.110.109 87.107.110.110"
+        ["403"]="10.202.10.202 10.202.10.102"
+        ["GOOGLE"]="8.8.8.8 8.8.4.4"
+        ["CLOUDFLARE"]="1.1.1.1 1.0.0.1"
+        ["RESET TO DEFAULT"]="" # Logic will handle this
+    )
+
+    # --- Robust Functions for DNS management ---
+    show_current_dns_smart() {
+        echo -e "\n${B_YELLOW}دی ان اس های فعلی سیستم:${C_RESET}" # PERSIANIZED
+        if command -v resolvectl &>/dev/null && systemd-resolve --status &>/dev/null; then
+            resolvectl status | grep 'Current DNS Server' | awk '{print "  • " $4}' | sort -u
+        elif command -v nmcli &>/dev/null; then
+            nmcli dev show | grep 'IP4.DNS' | awk '{ for (i=2; i<=NF; i++) printf "  • %s\n", $i }'
+        else
+            grep "^nameserver" /etc/resolv.conf 2>/dev/null | awk '{print "  •", $2}' || echo "  (یافت نشد)"
+        fi
+        echo
+    }
+
+    apply_dns_changes_smart() {
+        local provider="$1"
+        local dns_list="$2"
+
+        # --- 1. systemd-resolved (Priority 1) ---
+        if command -v resolvectl &>/dev/null && systemd-resolve --status &>/dev/null; then
+            local interface
+            interface=$(ip route get 8.8.8.8 | awk -- '{print $5; exit}')
+            echo -e "${C_GREEN}در حال استفاده از systemd-resolved روی اینترفیس '$interface'...${C_RESET}"
+            if [[ "$provider" == "RESET TO DEFAULT" ]]; then
+                sudo resolvectl revert "$interface"
+                echo "DNS برای '$interface' به حالت پیشفرض بازنشانی شد."
+            else
+                sudo resolvectl dns "$interface" $dns_list
+                echo "DNS برای '$interface' روی $provider ($dns_list) تنظیم شد."
+            fi
+            sudo systemctl restart systemd-resolved
+
+        # --- 2. NetworkManager (Priority 2) ---
+        elif command -v nmcli &>/dev/null; then
+            local conn_name
+            conn_name=$(nmcli -t -f NAME,DEVICE con show --active | head -n 1 | cut -d: -f1)
+            echo -e "${C_GREEN}در حال استفاده از NetworkManager برای کانکشن '$conn_name'...${C_RESET}"
+            if [[ "$provider" == "RESET TO DEFAULT" ]]; then
+                sudo nmcli con mod "$conn_name" ipv4.dns ""
+                sudo nmcli con mod "$conn_name" ipv4.ignore-auto-dns no
+                echo "DNS برای '$conn_name' به حالت خودکار بازنشانی شد."
+            else
+                sudo nmcli con mod "$conn_name" ipv4.dns "$dns_list"
+                sudo nmcli con mod "$conn_name" ipv4.ignore-auto-dns yes
+                echo "DNS برای '$conn_name' روی $provider ($dns_list) تنظیم شد."
+            fi
+            echo "در حال فعالسازی مجدد کانکشن برای اعمال تغییرات..."
+            sudo nmcli con down "$conn_name" && sudo nmcli con up "$conn_name"
+
+        # --- 3. Fallback: /etc/resolv.conf (Temporary) ---
+        else
+            echo -e "${C_YELLOW}اخطار:${C_RESET} سرویس systemd-resolved یا NetworkManager یافت نشد."
+            echo "در حال استفاده از روش جایگزین (ویرایش مستقیم /etc/resolv.conf)."
+            echo -e "${C_RED}این تغییرات به احتمال زیاد موقتی بوده و پس از ریبوت پاک خواهند شد!${C_RESET}"
+            
+            local backup_file="/etc/resolv.conf.bak.$(date +%F-%T)"
+            sudo cp /etc/resolv.conf "$backup_file"
+            echo "یک نسخه پشتیبان در $backup_file ایجاد شد."
+
+            if [[ "$provider" == "RESET TO DEFAULT" ]]; then
+                echo -e "${C_RED}در این حالت امکان بازنشانی خودکار وجود ندارد. لطفاً نسخه پشتیبان را بازگردانید.${C_RESET}"
+                return 1
+            fi
+            
+            {
+                echo "# Generated by DNS script on $(date)"
+                echo "# Provider: $provider"
+                for dns in $dns_list; do echo "nameserver $dns"; done
+                echo "options edns0 trust-ad"
+            } | sudo tee /etc/resolv.conf > /dev/null
+            echo "DNS روی $provider ($dns_list) تنظیم شد. (تغییر موقتی)"
+        fi
+    }
+
+    # --- Main Logic for this submenu ---
+    show_current_dns_smart
+    
+    echo -e "${B_CYAN}سرویس دهندگان DNS موجود:${C_RESET}" # PERSIANIZED
+    for i in "${!providers[@]}"; do
+        local name="${providers[$i]}"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %-17s ${C_CYAN}%s${C_RESET}\n" $((i + 1)) "$name" "${dns_servers[$name]}"
+    done
+    echo -e "   ${C_YELLOW}0)${C_WHITE} بازگشت به منوی قبلی${C_RESET}" # PERSIANIZED
+    echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+    
+    read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
+
+    if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt "${#providers[@]}" ]; then
+        echo -e "\n${C_RED}انتخاب نامعتبر است. عملیات لغو شد.${C_RESET}"
+        sleep 2
+        return
+    fi
+
+    if [ "$choice" -eq 0 ]; then
+        return
+    fi
+
+    local provider="${providers[$((choice - 1))]}"
+    apply_dns_changes_smart "$provider" "${dns_servers[$provider]}"
+    
+    echo -e "\n${C_GREEN}عملیات تکمیل شد. در حال بررسی تنظیمات جدید DNS...${C_RESET}"
+    show_current_dns_smart
+    read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+}
+# END: NEW DNS CHANGER SUBMENU FUNCTION
+
 
 # --- MAIN MENUS ---
 
@@ -2144,8 +2274,9 @@ manage_network_optimization() {
         echo -e "${C_YELLOW}6) ${C_WHITE}تست پینگ سرورهای DNS"
         echo -e "${C_YELLOW}7) ${C_WHITE}پینگ خارج به داخل"
         echo -e "${C_YELLOW}8) ${C_WHITE}پینگ داخل به خارج"
-        echo -e "${C_YELLOW}9) ${C_WHITE}تست سرعت خودکار ایران و خارج (iperf3)"
-        echo -e "${C_YELLOW}10) ${C_WHITE}بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}9) ${C_WHITE}تست سرعت خودکار ایران و خارج (IPERF3)"
+        echo -e "${C_YELLOW}10) ${B_GREEN}دی ان اس رفع تحریم داخلی"
+        echo -e "${C_YELLOW}11) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
         case $choice in
@@ -2158,7 +2289,8 @@ manage_network_optimization() {
             7) ping_iran_hosts ;;
             8) ping_external_hosts ;;
             9) run_iperf3_test ;;
-            10) return ;;
+            10) manage_sanction_dns ;;
+            11) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
@@ -2173,7 +2305,7 @@ manage_ssh_port() {
     current_port=$(grep -i "^#*port" "$sshd_config" | tail -n 1 | awk '{print $2}')
     echo -e "${C_WHITE}پورت SSH فعلی: ${C_GREEN}${current_port:-22}${C_RESET}"
     
-    read -ep "$(echo -e "${B_MAGENTA}پورت جدید SSH را وارد کنید (یا برای لغو Enter بزنید): ${C_RESET}")" new_port
+    read -ep "$(echo -e "${B_MAGENTA}پورت جدید SSH را وارد کنید (یا برای لغو ENTER بزنید): ${C_RESET}")" new_port
 
     if [ -z "$new_port" ]; then
         echo -e "\n${C_RED}عملیات لغو شد.${C_RESET}"
@@ -2206,15 +2338,15 @@ manage_security() {
     while true; do
         clear
         echo -e "${B_CYAN}--- امنیت و دسترسی ---${C_RESET}\n"
-        echo -e "${C_YELLOW}1) ${C_WHITE}مدیریت فایروال (UFW)"
-        echo -e "${C_YELLOW}2) ${C_WHITE}مدیریت ورود کاربر روت"
-        echo -e "${C_YELLOW}3) ${C_WHITE}تغییر پورت SSH"
-        echo -e "${C_YELLOW}4) ${C_WHITE}فعال/غیرفعال کردن IPV6"
-        echo -e "${C_YELLOW}5) ${C_WHITE}مدیریت ریبوت خودکار"
-        echo -e "${C_YELLOW}6) ${C_WHITE}اسکنر پورت"
-        echo -e "${C_YELLOW}7) ${C_WHITE}اسکن رنج آروان کلود"
-        echo -e "${C_YELLOW}8) ${C_WHITE}تشخیص سالم بودن آی پی"
-        echo -e "${C_YELLOW}9) ${C_WHITE}اسکن اندپوینت های وارپ"
+        echo -e "${C_YELLOW}1)${C_WHITE}مدیریت فایروال (UFW)"
+        echo -e "${C_YELLOW}2)${C_WHITE}مدیریت ورود کاربر روت"
+        echo -e "${C_YELLOW}3)${C_WHITE}تغییر پورت SSH"
+        echo -e "${C_YELLOW}4)${C_WHITE}فعال/غیرفعال کردن IPV6"
+        echo -e "${C_YELLOW}5)${C_WHITE}مدیریت ریبوت خودکار"
+        echo -e "${C_YELLOW}6)${C_WHITE}اسکنر پورت"
+        echo -e "${C_YELLOW}7)${C_WHITE}اسکن رنج آروان کلود"
+        echo -e "${C_YELLOW}8)${C_WHITE}تشخیص سالم بودن آی پی"
+        echo -e "${C_YELLOW}9)${C_WHITE}اسکن اندپوینت های WARP"
         echo -e "${C_YELLOW}10) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
@@ -2240,7 +2372,7 @@ manage_rathole_monitoring() {
         clear
         echo -e "${B_CYAN}--- بهینه ساز و مونیتورینگ رت هول ---${C_RESET}\n"
         echo -e "${C_YELLOW}1)${C_WHITE} مانیتورینگ چند سرور با TLS از طریق رتهول"
-        echo -e "${C_YELLOW}2)${C_WHITE} پایش تونل بک‌هال بین دو VPS برای عبور از فیلترینگ"
+        echo -e "${C_YELLOW}2)${C_WHITE} پایش تونل بک‌هال (BACKHAUL) بین دو VPS برای عبور از فیلترینگ"
         echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی قبلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         read -ep "$(echo -e "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}")" choice
