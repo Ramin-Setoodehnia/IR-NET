@@ -1,3 +1,5 @@
+[English](README-EN.md)
+
 <div dir="rtl">
 
 <p align="center">
