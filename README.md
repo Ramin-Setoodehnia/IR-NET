@@ -123,21 +123,24 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?
 * **COLLABORATOR:** IRCFSPACE ([T.ME/IRCFSPACE](https://t.me/IRCFSPACE))
 
 ---
-🎁 هدیه
 
-اگر این پروژه برای شما مفید بوده است، می‌توانید از طریق آدرس‌های زیر از ما حمایت مالی کنید.
+## 🎁 DONATION / حمایت مالی
 
-
-TRON (TRX)
-
-TBwGy36S9AV7iXFukdC8Y94zQZhQndPJyD
-
-
-TETHER (USDT) - BEP20
-
-0xC69fa0FecB4c76d89813dA6BC64827Db399B73f6
+If this project has been useful to you, you can support us financially.
+<br>
+اگر این پروژه برای شما مفید بوده است، می‌توانید از ما حمایت مالی کنید.
 
 ---
+
+**TRON (TRX)**
+```
+TBwGy36S9AV7iXFukdC8Y94zQZhQndPJyD
+```
+
+**TETHER (USDT) - BEP20**
+```
+0xC69fa0FecB4c76d89813dA6BC64827Db399B73f6
+```
 
 ## ⚖️ مجوز انتشار
 این پروژه تحت مجوز MIT منتشر شده است.
