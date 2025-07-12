@@ -25,27 +25,33 @@
 
 **روش ۱ (اصلی):**
 ```bash
- bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/menu.sh?$(date +%s)")
+bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-FA.sh?$(date +%s)")
+```
+```bash
+bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?$(date +%s)")
 ```
 
 **روش ۲ (جایگزین با CDN):**
-```bash
-bash <(curl -sSL https://cdn.jsdelivr.net/gh/cy33r/IR-NET/menu.sh)
-```
----
 
+
+---
 > **روش جایگزین (آفلاین):**
 >
-> 1.  فایل‌ `menu.sh` را دانلود کنید.
+> 1.  فایل‌ `MENU-FA.sh` یا `MENU-EN.sh` را دانلود کنید.
 > 2.  فایل‌ دانلود شده را در پوشه‌ی `/root` سرور آپلود نمایید.
 > 3.  دستورات زیر را به ترتیب در ترمینال اجرا کنید:
 >
 > ```bash
-> chmod +x /root/menu.sh
-> sed -i 's/\r$//' /root/menu.sh
-> sudo bash /root/menu.sh
+> chmod +x /root/MENU-FA.sh
+> sed -i 's/\r$//' /root/MENU-FA.sh
+> sudo bash /root/MENU-FA.sh
 > ```
-
+>
+> ```bash
+> chmod +x /root/MENU-EN.sh
+> sed -i 's/\r$//' /root/MENU-EN.sh
+> sudo bash /root/MENU-EN.sh
+> ```
 **سیستم‌عامل مورد نیاز:** این اسکریپت به طور اختصاصی برای توزیع **UBUNTU 22.04 و بالاتر** طراحی شده است.
 
 ---
