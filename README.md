@@ -1,5 +1,3 @@
-[فارسی](README.md)
-
 <div dir="rtl">
 
 <p align="center">
