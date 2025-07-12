@@ -125,12 +125,8 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?
 ---
 
 ## 🎁 DONATION / حمایت مالی
-
-If this project has been useful to you, you can support us financially.
 <br>
 اگر این پروژه برای شما مفید بوده است، می‌توانید از ما حمایت مالی کنید.
-
----
 
 **TRON (TRX)**
 ```
