@@ -27,6 +27,9 @@
 
 **روش ۱ (اصلی):**
 ```bash
+snap install jq
+```
+```bash
 bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-FA.sh?$(date +%s)")
 ```
 ```bash
