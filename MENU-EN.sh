@@ -134,8 +134,6 @@ init_environment() {
 # #############################################################################
 # --- END OF CORE FRAMEWORK ---
 # #############################################################################
-
-
 # --- Header and Banner ---
 show_banner() {
     echo -e "${B_BLUE}╔══════════════════════════════════════════════════════════════╗${C_RESET}"
@@ -1505,6 +1503,99 @@ EOF
   esac
   read -n 1 -s -r -p $'\nPress any key to continue...'
 }
+run_packet_loss_test() {
+    clear
+    echo -e "${B_CYAN}--- PACKET LOSS, PING & ROUTE TEST (MTR) ---${C_RESET}\n"
+    if ! command -v mtr &> /dev/null; then
+        log_message "ERROR" "MTR tool is not installed. Please install it first via the 'UPDATE & INSTALL CORE PACKAGES' menu or with 'apt install mtr-tiny'."
+        read -n 1 -s -r -p "Press any key to continue..."
+        return
+    fi
+
+    printf "%b" "${B_MAGENTA}Please enter the target server's IP address: ${C_RESET}"
+    read -r target_ip
+
+    if ! is_valid_ip "$target_ip"; then
+        log_message "ERROR" "The entered IP address is not valid."
+        sleep 2
+        return
+    fi
+
+    echo -e "\n${C_YELLOW}Running test to ${target_ip}... This will take about 1 minute.${C_RESET}"
+    echo -e "${C_WHITE}This test shows the ping and packet loss percentage (Loss%) at each hop of the connection path.${C_RESET}"
+    echo -e "${C_WHITE}To stop manually, press Ctrl+C.${C_RESET}"
+    echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
+    
+    # Execute MTR and store the output in a variable
+    local mtr_output
+    mtr_output=$(mtr -r -c 50 --no-dns "$target_ip")
+    
+    echo -e "$mtr_output" # Display the result to the user
+    
+    echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
+    log_message "SUCCESS" "Test completed."
+    
+    # --- Automated Analysis ---
+    echo -e "${B_CYAN}--- AUTOMATED ANALYSIS ---${C_RESET}"
+
+    # Extract avg loss and ping from the last hop (the destination)
+    local last_hop_stats
+    last_hop_stats=$(echo "$mtr_output" | awk '$1 ~ /^[0-9]+(\.|\?)/' | tail -n 1)
+
+    if [ -z "$last_hop_stats" ]; then
+        echo -e "${C_RED}❌ Analysis failed. Could not extract data from MTR output.${C_RESET}"
+    else
+        # Extract packet loss percentage (3rd column) and convert to an integer
+        local avg_loss
+        avg_loss=$(echo "$last_hop_stats" | awk '{print $3}' | tr -d '[:alpha:]%')
+        avg_loss=${avg_loss%.*} # Remove decimal part
+
+        # Extract average ping (5th column) and convert to an integer
+        local avg_ping
+        avg_ping=$(echo "$last_hop_stats" | awk '{print $5}')
+        avg_ping=${avg_ping%.*} # Remove decimal part
+
+        echo -e "${C_WHITE}▪️ Average Loss to destination: ${C_YELLOW}${avg_loss:-0}%${C_RESET}"
+        echo -e "${C_WHITE}▪️ Average Ping to destination: ${C_YELLOW}${avg_ping:-0} ms${C_RESET}"
+        echo ""
+
+        # Analyze packet loss status
+        local loss_status=""
+        if [ "${avg_loss:-0}" -eq 0 ]; then
+            loss_status="${G}Excellent (No packet loss)${N}"
+        elif [ "${avg_loss:-0}" -le 2 ]; then
+            loss_status="${Y}Acceptable (Low packet loss)${N}"
+        else
+            loss_status="${R}Poor (High packet loss)${N}"
+        fi
+        echo -e "${C_WHITE}Packet Loss Status: ${loss_status}"
+
+        # Analyze ping status
+        local ping_status=""
+        if [ "${avg_ping:-999}" -le 80 ]; then
+            ping_status="${G}Excellent (Very low ping)${N}"
+        elif [ "${avg_ping:-999}" -le 150 ]; then
+            ping_status="${Y}Good (Acceptable ping)${N}"
+        else
+            ping_status="${R}Poor (High ping)${N}"
+        fi
+        echo -e "${C_WHITE}Ping Status: ${ping_status}"
+
+        # Final verdict
+        echo -e "\n${B_MAGENTA}Overall Verdict:${C_RESET}"
+        if [ "${avg_loss:-0}" -gt 2 ]; then
+            echo -e "${R}This connection is not suitable for stability-sensitive applications (e.g., gaming, video calls) due to high packet loss (${avg_loss}%).${N}"
+        elif [ "${avg_loss:-0}" -eq 0 ] && [ "${avg_ping:-999}" -le 80 ]; then
+            echo -e "${G}This connection is excellent, offering both stability and low latency.${N}"
+        elif [ "${avg_loss:-0}" -le 2 ] && [ "${avg_ping:-999}" -le 150 ]; then
+            echo -e "${Y}This connection is good and suitable for most general purposes.${N}"
+        else
+            echo -e "${Y}This connection is stable enough, but its ping might be slightly high for some applications.${N}"
+        fi
+    fi
+    
+    read -n 1 -s -r -p $'\nPress any key to continue...'
+}
 
 # --- ADVANCED MIRROR TEST ---
 declare -a MIRROR_LIST_CACHE
@@ -1530,7 +1621,6 @@ test_mirror_speed() {
         fi
     fi
 }
-
 check_mirror_release_date() {
     local mirror_url="$1"
     if ! command -v lsb_release &> /dev/null; then echo "N/A"; return; fi
@@ -1700,6 +1790,7 @@ advanced_mirror_test() {
     esac
     read -n 1 -s -r -p "Press any key to continue..."
 }
+
 ping_test_ips() {
     clear
     echo -e "${B_CYAN}--- PING TEST TO VARIOUS DNS SERVERS ---${C_RESET}\n"
@@ -1786,6 +1877,7 @@ ping_external_hosts() {
     echo -e "\n${C_GREEN}Ping test finished.${C_RESET}"
     read -n 1 -s -r -p "Press any key to continue..."
 }
+
 manage_firewall() {
     if ! command -v ufw &> /dev/null; then
         log_message "WARN" "UFW firewall is not installed. Installing..."
@@ -1970,7 +2062,6 @@ scan_arvan_ranges() {
 
     for range in "${RANGES[@]}"; do
         echo
-        # THE FINAL, ROBUST FIX for the display issue
         printf "%s--> To scan range [" "${B_YELLOW}"
         printf "%s%s" "${C_CYAN}" "${range}"
         printf "%s] press ENTER (s=skip, q=quit): %s" "${B_YELLOW}" "${C_RESET}"
@@ -2135,7 +2226,6 @@ manage_sanction_dns() {
     clear
     echo -e "${B_CYAN}--- ANTI-SANCTION DNS (IRAN) ---${C_RESET}\n"
 
-    # --- DNS Providers ---
     local -a providers=("SHECAN" "RADAR" "ELECTRO" "BEGZAR" "DNS PRO" "403" "GOOGLE" "CLOUDFLARE" "RESET TO DEFAULT")
     local -A dns_servers=(
         ["SHECAN"]="178.22.122.100 185.51.200.2"
@@ -2149,7 +2239,6 @@ manage_sanction_dns() {
         ["RESET TO DEFAULT"]=""
     )
 
-    # --- Robust Functions for DNS management ---
     show_current_dns_smart() {
         echo -e "\n${B_YELLOW}Current system DNS servers:${C_RESET}"
         if command -v resolvectl &>/dev/null && systemd-resolve --status &>/dev/null; then
@@ -2255,17 +2344,18 @@ manage_network_optimization() {
     while true; do
         clear
         echo -e "${B_CYAN}--- NETWORK & CONNECTION OPTIMIZATION ---${C_RESET}\n"
-        echo -e "${C_YELLOW}1) ${C_WHITE}Speed Optimization (TC)"
-        echo -e "${C_YELLOW}2) ${C_WHITE}Kernel Optimization (SYSCTL)"
-        echo -e "${C_YELLOW}3) ${B_YELLOW}ADVANCED Network Stack Optimization"
-        echo -e "${C_YELLOW}4) ${C_WHITE}Manage & Find Best DNS"
-        echo -e "${C_YELLOW}5) ${C_WHITE}ADVANCED APT Mirror Finder"
-        echo -e "${C_YELLOW}6) ${C_WHITE}Ping Test DNS Servers"
-        echo -e "${C_YELLOW}7) ${C_WHITE}Ping Inbound"
-        echo -e "${C_YELLOW}8) ${C_WHITE}Ping Outbound"
-        echo -e "${C_YELLOW}9) ${C_WHITE}Automated Speed Test (IPERF3)"
-        echo -e "${C_YELLOW}10) ${B_GREEN}Anti-Sanction DNS (Iran)"
-        echo -e "${C_YELLOW}11) ${C_WHITE}Return to Main Menu"
+        echo -e "${C_YELLOW}1) ${C_WHITE}SPEED OPTIMIZATION (TC)"
+        echo -e "${C_YELLOW}2) ${C_WHITE}KERNEL OPTIMIZATION (SYSCTL)"
+        echo -e "${C_YELLOW}3) ${B_YELLOW}ADVANCED NETWORK STACK OPTIMIZATION"
+        echo -e "${C_YELLOW}4) ${C_WHITE}MANAGE & FIND BEST DNS"
+        echo -e "${C_YELLOW}5) ${C_WHITE}ADVANCED APT MIRROR FINDER"
+        echo -e "${C_YELLOW}6) ${C_WHITE}PING TEST DNS SERVERS"
+        echo -e "${C_YELLOW}7) ${C_WHITE}PING INBOUND"
+        echo -e "${C_YELLOW}8) ${C_WHITE}PING OUTBOUND"
+        echo -e "${C_YELLOW}9) ${B_WHITE}PACKET LOSS TEST BETWEEN SERVERS (MTR)"
+        echo -e "${C_YELLOW}10) ${C_WHITE}AUTOMATED SPEED TEST (IPERF3)"
+        echo -e "${C_YELLOW}11) ${B_GREEN}ANTI-SANCTION DNS (IRAN)"
+        echo -e "${C_YELLOW}12) ${C_WHITE}RETURN TO MAIN MENU"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}Please select an option: ${C_RESET}"
         read -r choice
@@ -2278,9 +2368,10 @@ manage_network_optimization() {
             6) ping_test_ips ;;
             7) ping_iran_hosts ;;
             8) ping_external_hosts ;;
-            9) run_iperf3_test ;;
-            10) manage_sanction_dns ;;
-            11) return ;;
+            9) run_packet_loss_test ;;
+            10) run_iperf3_test ;;
+            11) manage_sanction_dns ;;
+            12) return ;;
             *) echo -e "\n${C_RED}Invalid option!${C_RESET}"; sleep 1 ;;
         esac
     done
