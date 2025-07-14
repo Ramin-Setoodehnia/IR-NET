@@ -96,10 +96,8 @@ restore_backup() {
 check_service_status() {
     local service_name=$1
     if systemctl is-active --quiet "$service_name"; then
-        # FIX: Clarified success message
         log_message "SUCCESS" "سرویس $service_name فعال و در حال اجرا است."
     else
-        # FIX: Clarified error message
         log_message "ERROR" "اجرای سرویس $service_name ناموفق بود. لطفاً وضعیت را دستی بررسی کنید: systemctl status $service_name"
     fi
 }
@@ -136,8 +134,6 @@ init_environment() {
 # #############################################################################
 # --- END OF CORE FRAMEWORK ---
 # #############################################################################
-
-
 # --- Header and Banner ---
 show_banner() {
     echo -e "${B_BLUE}╔══════════════════════════════════════════════════════════════╗${C_RESET}"
@@ -1528,6 +1524,101 @@ EOF
   esac
   read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
 }
+run_packet_loss_test() {
+    clear
+    echo -e "${B_CYAN}--- تست پکت لاست، پینگ و مسیر شبکه (MTR) ---${C_RESET}\n"
+    if ! command -v mtr &> /dev/null; then
+        log_message "ERROR" "ابزار MTR نصب نیست. لطفاً ابتدا از طریق منوی 'آپدیت و نصب پکیج های لازم' یا دستور 'apt install mtr-tiny' آن را نصب کنید."
+        read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
+        return
+    fi
+
+    printf "%b" "${B_MAGENTA}لطفاً آدرس IP سرور مقصد را وارد کنید: ${C_RESET}"
+    read -r target_ip
+
+    if ! is_valid_ip "$target_ip"; then
+        log_message "ERROR" "آدرس IP وارد شده معتبر نیست."
+        sleep 2
+        return
+    fi
+
+    echo -e "\n${C_YELLOW}در حال اجرای تست به سمت ${target_ip}... این تست حدود 1 دقیقه طول می‌کشد.${C_RESET}"
+    echo -e "${C_WHITE}این تست، پینگ و درصد بسته‌های گمشده (Loss%) را در هر مرحله از مسیر نشان می‌دهد.${C_RESET}"
+    echo -e "${C_WHITE}برای توقف دستی، کلیدهای Ctrl+C را فشار دهید.${C_RESET}"
+    echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
+    
+    # اجرای MTR و ذخیره خروجی در یک متغیر
+    local mtr_output
+    mtr_output=$(mtr -r -c 50 --no-dns "$target_ip")
+    
+    echo -e "$mtr_output" # نمایش نتیجه به کاربر
+    
+    echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
+    log_message "SUCCESS" "تست به پایان رسید."
+    
+    # --- بخش تحلیل خودکار ---
+    echo -e "${B_CYAN}--- تحلیل خودکار نتیجه ---${C_RESET}"
+
+    # استخراج میانگین پکت لاست و پینگ از آخرین هاپ (مقصد)
+    # -n: فقط خطوطی که با عدد شروع می‌شوند | tail -n 1: آخرین خط | awk: استخراج ستون‌ها
+    local last_hop_stats
+    last_hop_stats=$(echo "$mtr_output" | awk '$1 ~ /^[0-9]+(\.|\?)/' | tail -n 1)
+
+    if [ -z "$last_hop_stats" ]; then
+        echo -e "${C_RED}❌ تحلیل ناموفق بود. امکان استخراج اطلاعات از خروجی MTR وجود ندارد.${C_RESET}"
+    else
+        # استخراج درصد پکت لاست (ستون سوم) و تبدیل آن به عدد صحیح
+        local avg_loss
+        avg_loss=$(echo "$last_hop_stats" | awk '{print $3}' | tr -d '[:alpha:]%')
+        avg_loss=${avg_loss%.*} # حذف بخش اعشاری
+
+        # استخراج میانگین پینگ (ستون پنجم) و تبدیل آن به عدد صحیح
+        local avg_ping
+        avg_ping=$(echo "$last_hop_stats" | awk '{print $5}')
+        avg_ping=${avg_ping%.*} # حذف بخش اعشاری
+
+        echo -e "${C_WHITE}▪️ میانگین پکت لاست تا مقصد: ${C_YELLOW}${avg_loss:-0}%${C_RESET}"
+        echo -e "${C_WHITE}▪️ میانگین پینگ تا مقصد: ${C_YELLOW}${avg_ping:-0} ms${C_RESET}"
+        echo ""
+
+        # تحلیل وضعیت بر اساس پکت لاست
+        local loss_status=""
+        if [ "${avg_loss:-0}" -eq 0 ]; then
+            loss_status="${G}عالی (بدون پکت لاست)${N}"
+        elif [ "${avg_loss:-0}" -le 2 ]; then
+            loss_status="${Y}قابل قبول (پکت لاست کم)${N}"
+        else
+            loss_status="${R}ضعیف (پکت لاست بالا)${N}"
+        fi
+        echo -e "${C_WHITE}وضعیت پکت لاست: ${loss_status}"
+
+        # تحلیل وضعیت بر اساس پینگ
+        local ping_status=""
+        if [ "${avg_ping:-999}" -le 80 ]; then
+            ping_status="${G}عالی (پینگ بسیار پایین)${N}"
+        elif [ "${avg_ping:-999}" -le 150 ]; then
+            ping_status="${Y}خوب (پینگ مناسب)${N}"
+        else
+            ping_status="${R}ضعیف (پینگ بالا)${N}"
+        fi
+        echo -e "${C_WHITE}وضعیت پینگ: ${ping_status}"
+
+        # نتیجه گیری نهایی
+        echo -e "\n${B_MAGENTA}نتیجه‌گیری کلی:${C_RESET}"
+        if [ "${avg_loss:-0}" -gt 2 ]; then
+            echo -e "${R}این سرور به دلیل پکت لاست بالا (${avg_loss}%) برای کارهای حساس به پایداری مانند بازی یا تماس تصویری مناسب نیست.${N}"
+        elif [ "${avg_loss:-0}" -eq 0 ] && [ "${avg_ping:-999}" -le 80 ]; then
+            echo -e "${G}این سرور وضعیت بسیار خوبی دارد. هم پایدار است و هم پینگ پایینی دارد.${N}"
+        elif [ "${avg_loss:-0}" -le 2 ] && [ "${avg_ping:-999}" -le 150 ]; then
+            echo -e "${Y}این سرور وضعیت خوبی دارد و برای اکثر کاربری‌ها مناسب است.${N}"
+        else
+            echo -e "${Y}این سرور از نظر پایداری قابل قبول است اما ممکن است پینگ آن برای برخی کاربردها کمی بالا باشد.${N}"
+        fi
+    fi
+    
+    read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+}
+
 # --- ADVANCED MIRROR TEST ---
 declare -a MIRROR_LIST_CACHE
 
@@ -1552,7 +1643,6 @@ test_mirror_speed() {
         fi
     fi
 }
-
 check_mirror_release_date() {
     local mirror_url="$1"
     if ! command -v lsb_release &> /dev/null; then echo "N/A"; return; fi
@@ -1618,7 +1708,6 @@ choose_custom_mirror_from_list() {
         option_num=$((option_num + 1))
     done
 
-    # FIX: Robust prompt
     printf "%b" "${B_MAGENTA}لطفاً شماره مخزن مورد نظر را انتخاب کنید (یا برای لغو Enter بزنید): ${C_RESET}"
     read -r custom_choice
 
@@ -1712,7 +1801,6 @@ advanced_mirror_test() {
     echo -e "${C_YELLOW}2) ${C_WHITE} انتخاب دستی یک مخزن از لیست"
     echo -e "${C_YELLOW}3) ${C_WHITE} بازگشت به منوی بهینه‌سازی"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-    # FIX: Robust prompt
     printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
     read -r mirror_choice
 
@@ -1766,7 +1854,6 @@ port_scanner_menu() {
     echo -e "${C_YELLOW}2)${C_WHITE} اسکن سریع پورت‌های باز با NMAP (پیشنهادی)"
     echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-    # FIX: Robust prompt
     printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
     read -r choice
     case $choice in
@@ -1777,7 +1864,6 @@ port_scanner_menu() {
             log_message "SUCCESS" "ابزار NMAP با موفقیت نصب شد."
             ;;
         2)
-            # FIX: Robust prompt
             printf "%b" "${B_MAGENTA}آدرس IP هدف را وارد کنید: ${C_RESET}"
             read -r target_ip
             if ! is_valid_ip "$target_ip"; then
@@ -1834,7 +1920,6 @@ manage_firewall() {
         echo -e "${C_YELLOW}6)${C_RED} غیرفعال کردن فایروال"
         echo -e "${C_YELLOW}7)${C_WHITE} بازگشت به منوی امنیت"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        # FIX: Robust prompt
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
         case $choice in
@@ -1845,7 +1930,6 @@ manage_firewall() {
                 read -n 1 -s -r -p $'\nبرای ادامه کلیدی را فشار دهید...'
                 ;;
             2)
-                # FIX: Robust prompt
                 printf "%b" "${B_MAGENTA}پورت مورد نظر را وارد کنید: ${C_RESET}"
                 read -r port
                 if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
@@ -1861,7 +1945,6 @@ manage_firewall() {
                 echo -e "${B_CYAN}--- حذف قانون فایروال ---${C_RESET}"
                 ufw status numbered
                 echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-                # FIX: Robust prompt
                 printf "%b" "${B_MAGENTA}شماره قانونی که می‌خواهید حذف شود را وارد کنید: ${C_RESET}"
                 read -r rule_num
                 if ! [[ "$rule_num" =~ ^[0-9]+$ ]]; then
@@ -1913,7 +1996,6 @@ manage_xui_offline_install() {
         echo -e "${C_YELLOW}2)${C_WHITE} راهنمای نصب آفلاین"
         echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        # FIX: Robust prompt
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
 
@@ -2002,7 +2084,6 @@ scan_arvan_ranges() {
 
     for range in "${RANGES[@]}"; do
         echo
-        # FIX: THE MAIN BUG - Using multiple printf calls for maximum terminal compatibility.
         printf "%s--> برای اسکن رنج [" "${B_YELLOW}"
         printf "%s%s" "${C_CYAN}" "${range}"
         printf "%s] کلید ENTER را بزنید (s=رد کردن, q=خروج): %s" "${B_YELLOW}" "${C_RESET}"
@@ -2087,7 +2168,6 @@ manage_ip_health_check() {
         echo -e "${C_YELLOW}3)${C_WHITE} تست سوم (GIT.IO/JRW8R)"
         echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی امنیت"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        # FIX: Robust prompt
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
         case $choice in
@@ -2122,7 +2202,6 @@ run_iperf3_test() {
     echo -e "${C_YELLOW}2) ${C_WHITE}کلاینت (شروع کننده تست - معمولاً سرور ایران)"
     echo -e "${C_YELLOW}3) ${C_WHITE}بازگشت"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-    # FIX: Robust prompt
     printf "%b" "${B_MAGENTA}نقش این سرور چیست؟ ${C_RESET}"
     read -r iperf_choice
 
@@ -2142,7 +2221,6 @@ run_iperf3_test() {
         2)
             clear
             echo -e "${B_YELLOW}حالت کلاینت (CLIENT MODE) انتخاب شد.${C_RESET}\n"
-            # FIX: Robust prompt
             printf "%b" "${B_MAGENTA}لطفاً آدرس IP سرور مقصد (سرور خارج) را وارد کنید: ${C_RESET}"
             read -r server_ip
             if ! is_valid_ip "$server_ip"; then
@@ -2170,7 +2248,6 @@ manage_sanction_dns() {
     clear
     echo -e "${B_CYAN}--- دی ان اس رفع تحریم داخلی ---${C_RESET}\n"
 
-    # --- DNS Providers ---
     local -a providers=("SHECAN" "RADAR" "ELECTRO" "BEGZAR" "DNS PRO" "403" "GOOGLE" "CLOUDFLARE" "RESET TO DEFAULT")
     local -A dns_servers=(
         ["SHECAN"]="178.22.122.100 185.51.200.2"
@@ -2184,7 +2261,6 @@ manage_sanction_dns() {
         ["RESET TO DEFAULT"]=""
     )
 
-    # --- Robust Functions for DNS management ---
     show_current_dns_smart() {
         echo -e "\n${B_YELLOW}دی ان اس های فعلی سیستم:${C_RESET}"
         if command -v resolvectl &>/dev/null && systemd-resolve --status &>/dev/null; then
@@ -2252,7 +2328,6 @@ manage_sanction_dns() {
         fi
     }
 
-    # --- Main Logic for this submenu ---
     show_current_dns_smart
     
     echo -e "${B_CYAN}سرویس دهندگان DNS موجود:${C_RESET}"
@@ -2263,7 +2338,6 @@ manage_sanction_dns() {
     echo -e "   ${C_YELLOW}0)${C_WHITE} بازگشت به منوی قبلی${C_RESET}"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     
-    # FIX: Robust prompt
     printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
     read -r choice
 
@@ -2300,11 +2374,11 @@ manage_network_optimization() {
         echo -e "${C_YELLOW}6) ${C_WHITE}تست پینگ سرورهای DNS"
         echo -e "${C_YELLOW}7) ${C_WHITE}پینگ خارج به داخل"
         echo -e "${C_YELLOW}8) ${C_WHITE}پینگ داخل به خارج"
-        echo -e "${C_YELLOW}9) ${C_WHITE}تست سرعت خودکار ایران و خارج (IPERF3)"
-        echo -e "${C_YELLOW}10) ${B_GREEN}دی ان اس رفع تحریم داخلی"
-        echo -e "${C_YELLOW}11) ${C_WHITE}بازگشت به منوی اصلی"
+        echo -e "${C_YELLOW}9) ${B_WHITE}تست پکت لاست بین سرور (MTR)"
+        echo -e "${C_YELLOW}10) ${C_WHITE}تست سرعت خودکار ایران و خارج (IPERF3)"
+        echo -e "${C_YELLOW}11) ${B_GREEN}دی ان اس رفع تحریم داخلی"
+        echo -e "${C_YELLOW}12) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        # FIX: Robust prompt
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
         case $choice in
@@ -2316,9 +2390,10 @@ manage_network_optimization() {
             6) ping_test_ips ;;
             7) ping_iran_hosts ;;
             8) ping_external_hosts ;;
-            9) run_iperf3_test ;;
-            10) manage_sanction_dns ;;
-            11) return ;;
+            9) run_packet_loss_test ;;
+            10) run_iperf3_test ;;
+            11) manage_sanction_dns ;;
+            12) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
@@ -2333,7 +2408,6 @@ manage_ssh_port() {
     current_port=$(grep -i "^#*port" "$sshd_config" | tail -n 1 | awk '{print $2}')
     echo -e "${C_WHITE}پورت SSH فعلی: ${C_GREEN}${current_port:-22}${C_RESET}"
     
-    # FIX: Robust prompt
     printf "%b" "${B_MAGENTA}پورت جدید SSH را وارد کنید (یا برای لغو ENTER بزنید): ${C_RESET}"
     read -r new_port
 
@@ -2379,7 +2453,6 @@ manage_security() {
         echo -e "${C_YELLOW}9)${C_WHITE}اسکن اندپوینت های WARP"
         echo -e "${C_YELLOW}10) ${C_WHITE}بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        # FIX: Robust prompt
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
         case $choice in
@@ -2406,7 +2479,6 @@ manage_rathole_monitoring() {
         echo -e "${C_YELLOW}2)${C_WHITE} پایش تونل بک‌هال (BACKHAUL) بین دو VPS برای عبور از فیلترینگ"
         echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی قبلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        # FIX: Robust prompt
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
 
@@ -2441,7 +2513,6 @@ manage_rat_hole_tunnel() {
         echo -e "${C_YELLOW}3)${C_WHITE} راهنما"
         echo -e "${C_YELLOW}4)${C_WHITE} بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        # FIX: Robust prompt
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r tunnel_choice
 
@@ -2529,7 +2600,6 @@ main() {
       echo ""
       echo -e "   ${C_YELLOW}6) ${C_RED}خروج"
       echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
-      # FIX: Robust prompt
       printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
       read -r main_choice
 
