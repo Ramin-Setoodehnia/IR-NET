@@ -74,6 +74,7 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?
 * تست پینگ سرورهای DNS
 * پینگ خارج به ایران
 * پینگ ایران به خارج
+* تست پکت لاست بین سرور (MTR)
 * تست سرعت خودکار ایران و خارج (IPERF3)
 * دی ان اس رفع تحریم داخلی
 
