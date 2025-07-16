@@ -8,9 +8,9 @@
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/github/stars/cy33r/IR-NET?style=social" alt="GitHub Stars">
 
-    
+   
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/cd6d7d6a-79da-4e5a-a1d6-fb38e261bca2" alt="IR-NET-Logo"/>
+  <img src="https://github.com/user-attachments/assets/f2554461-a499-400a-b0c2-20b269264932" alt="IR-NET-Logo"/>
 </p>
 
 <h1 align="center">IR-NET - مجموعه ابزار مدیریت سرور اوبونتو</h1>
@@ -94,6 +94,10 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?
 #### ⌛️ نصب آفلاین پنل TX-UI
 * نصب پنل از فایل موجود در سرور
 * راهنمای نصب آفلاین
+
+#### 💎 تانل ایرنت (IRNET Tunnel)
+* نصب اسکریپت برای سرور خارج مرحله اول
+* نصب اسکریپت برای سرور ایران مرحله دوم
 
 #### 💎 تانل رت هول بهینه ایران
 * نصب تونل رت هول (با اسکریپت اصلی)
