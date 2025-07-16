@@ -130,7 +130,6 @@ init_environment() {
 
     PRIMARY_INTERFACE=$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')
 }
-
 # #############################################################################
 # --- END OF CORE FRAMEWORK ---
 # #############################################################################
@@ -413,7 +412,6 @@ suggest_reconnection() {
         ((countdown--))
     done
     printf "\n\n"
-    # FIX: Robust prompt
     printf "%b" "${C_YELLOW}Continue with potential issues? (y/N): ${C_RESET}"
     read -r choice
     if [[ ! "$choice" =~ ^[Yy]$ ]]; then
@@ -588,7 +586,6 @@ EOF
 
 custom_dns_config() {
     log_message "INFO" "Starting custom DNS configuration..."
-    # FIX: Robust prompt
     printf "%b" "Enter primary DNS server IP: "
     read -r dns1
     printf "%b" "Enter secondary DNS server IP: "
@@ -850,10 +847,8 @@ find_best_mtu() {
     fi
     return 0
 }
-
 restore_defaults() {
     log_message "INFO" "Restoring original settings..."
-    # FIX: Robust prompt
     printf "%b" "Are you sure you want to restore default settings? (y/N): "
     read -r choice
     if [[ ! "$choice" =~ ^[Yy]$ ]]; then
@@ -896,11 +891,9 @@ restore_defaults() {
     fi
     log_message "SUCCESS" "Original settings restored successfully."
     log_message "INFO" "A system reboot is recommended for changes to take effect."
-    # FIX: Robust prompt
     printf "%b" "Would you like to reboot now? (y/N): "
     read -r choice
     if [[ "$choice" =~ ^[Yy]$ ]]; then
-        # FIX: Using systemctl for reboot
         log_message "INFO" "Rebooting system now..."
         systemctl reboot
     fi
@@ -917,7 +910,7 @@ run_diagnostics() {
     if [[ -n "$interface" ]]; then
         printf "%s│%s Interface: %s%s%s\n" "$C_YELLOW" "$C_RESET" "$C_GREEN" "$interface" "$C_RESET"
         local ip_info speed duplex link_status mtu
-        ip_info=$(ip -4 addr show "$interface" 2>/dev/null | grep "inet " | awk '{print $2}' | head -1)
+        ip_info=$(ip -4 addr show "$interface" 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -1)
         if [[ -n "$ip_info" ]]; then
             printf "%s│%s IPv4 Address: %s%s%s\n" "$C_YELLOW" "$C_RESET" "$C_GREEN" "$ip_info" "$C_RESET"
         else
@@ -985,10 +978,10 @@ run_diagnostics() {
         printf "%s│%s %sPerformance test failed%s\n" "$C_YELLOW" "$C_RESET" "$C_RED" "$C_RESET"
     fi
     printf "%s└─%s\n\n" "$C_YELLOW" "$C_RESET"
-    # FIX: Added prompt text for clarity
     read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
     printf "%s\n" "$C_RESET"
 }
+
 intelligent_optimize() {
     log_message "INFO" "Starting intelligent network optimization..."
     if ! check_internet_connection; then
@@ -1012,11 +1005,9 @@ intelligent_optimize() {
     if ! find_best_mtu "$interface"; then log_message "ERROR" "Failed to optimize MTU."; return 1; fi
     log_message "SUCCESS" "All optimizations completed successfully."
     log_message "INFO" "A system reboot is recommended for changes to take effect."
-    # FIX: Robust prompt
     printf "%b" "Would you like to reboot now? (y/N): "
     read -r choice
     if [[ "$choice" =~ ^[Yy]$ ]]; then
-        # FIX: Using systemctl for reboot
         log_message "INFO" "Rebooting system now..."
         systemctl reboot
     fi
@@ -1034,9 +1025,14 @@ show_advanced_menu_as_bbr() {
         printf "%s۴. تنظیمات رابط شبکه (NIC)%s\n" "$C_GREEN" "$C_RESET"
         printf "%s۵. مشاهده بهینه سازی های فعلی%s\n" "$C_GREEN" "$C_RESET"
         printf "%s0. بازگشت به منوی قبلی%s\n\n" "$C_GREEN" "$C_RESET"
-        # FIX: Robust prompt
         printf "%b" "لطفا گزینه خود را وارد کنید (0-5): "
         read -r choice
+        
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1 # Set to an invalid value to trigger the default case
+        fi
+        
         case "$choice" in
             1) find_best_mtu "$PRIMARY_INTERFACE" ;;
             2) custom_dns_config ;;
@@ -1067,8 +1063,8 @@ show_advanced_menu_as_bbr() {
                 ;;
             0) return ;;
             *)
-                log_message "WARN" "Invalid option selected."
-                printf "\n%sInvalid option. Please enter a number between 0 and 5.%s\n" "$C_RED" "$C_RESET"
+                printf "\n%sگزینه نامعتبر است. لطفا عددی بین 0 تا 5 وارد کنید.%s\n" "$C_RED" "$C_RESET"
+                sleep 2
                 ;;
         esac
         if [[ "$choice" != "0" ]]; then
@@ -1089,9 +1085,14 @@ show_as_bbr_menu() {
         printf "%s۳. گزینه های پیشرفته (ADVANCED OPTIONS)%s\n" "$C_GREEN" "$C_RESET"
         printf "%s۴. بازگردانی به تنظیمات اولیه (RESTORE DEFAULTS)%s\n" "$C_GREEN" "$C_RESET"
         printf "%s0. بازگشت به منوی اصلی%s\n\n" "$C_GREEN" "$C_RESET"
-        # FIX: Robust prompt
         printf "%b" "لطفا گزینه خود را وارد کنید (0-4): "
         read -r choice
+        
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1 # Set to an invalid value to trigger the default case
+        fi
+
         case "$choice" in
             1)
                 intelligent_optimize
@@ -1113,7 +1114,6 @@ show_as_bbr_menu() {
                 return
                 ;;
             *)
-                log_message "WARN" "گزینه نامعتبر است."
                 printf "\n%sگزینه نامعتبر است. لطفا عددی بین 0 تا 4 وارد کنید.%s\n" "$C_RED" "$C_RESET"
                 sleep 2
                 ;;
@@ -1125,7 +1125,6 @@ run_as_bbr_optimization() {
     init_environment
     show_as_bbr_menu
 }
-
 # ###########################################################################
 # --- END OF MERGED SCRIPT: AS-BBR.sh ---
 # ###########################################################################
@@ -1209,9 +1208,14 @@ manage_dns() {
         echo -e "${C_YELLOW}4)${C_WHITE} ویرایش فایل کانفیگ DNS دائمی"
         echo -e "${C_YELLOW}5)${C_WHITE} بازگشت به منوی بهینه‌سازی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-        # FIX: Robust prompt
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
+
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1
+        fi
+
         case $choice in
             1) find_and_set_best_dns IRAN_DNS_LIST "ایران"; break ;;
             2) find_and_set_best_dns GLOBAL_DNS_LIST "جهانی"; break ;;
@@ -1232,12 +1236,16 @@ manage_ipv6() {
     echo -e "${C_YELLOW}2)${C_WHITE} فعال کردن IPV6 (حذف تنظیمات)"
     echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-    # FIX: Robust prompt
     printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
     read -r choice
+
+    # --- FIX: Input Validation ---
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        choice=-1
+    fi
+
     case $choice in
         1)
-            # FIX: Robust prompt
             printf "%b" "${C_YELLOW}**هشدار:** این کار ممکن است اتصال شما را دچار اختلال کند. آیا مطمئن هستید؟ (y/n): ${C_RESET}"
             read -r confirm
             if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
@@ -1281,13 +1289,17 @@ manage_ssh_root() {
   echo -e "${C_YELLOW}2)${C_WHITE} غیرفعال کردن ورود روت با رمز عبور"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-  # FIX: Robust prompt
   printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
   read -r choice
+
+  # --- FIX: Input Validation ---
+  if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+      choice=-1
+  fi
+
   case $choice in
     1)
       echo -e "\n${C_YELLOW}**هشدار:** فعال کردن ورود روت با رمز عبور، یک ریسک امنیتی است.${C_RESET}"
-      # FIX: Robust prompt
       printf "%b" "${B_MAGENTA}آیا برای ادامه مطمئن هستید؟ (y/n) ${C_RESET}"
       read -r confirm
       if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
@@ -1338,9 +1350,14 @@ manage_reboot_cron() {
   echo -e "${C_YELLOW}2)${C_WHITE} حذف CRON JOB ریبوت خودکار"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی امنیت"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-  # FIX: Robust prompt
   printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
   read -r choice
+  
+  # --- FIX: Input Validation ---
+  if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+      choice=-1
+  fi
+  
   case $choice in
     1)
       (crontab -l 2>/dev/null | grep -v "/sbin/shutdown -r now"; echo "0 */12 * * * /sbin/shutdown -r now") | crontab -
@@ -1363,9 +1380,14 @@ manage_tc_script() {
   echo -e "${C_YELLOW}2)${C_WHITE} حذف اسکریپت بهینه‌سازی TC"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی بهینه‌سازی"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-  # FIX: Robust prompt
   printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
   read -r choice
+  
+  # --- FIX: Input Validation ---
+  if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+      choice=-1
+  fi
+  
   local SCRIPT_PATH="/usr/local/bin/tc_optimize.sh"
   case $choice in
     1)
@@ -1422,16 +1444,19 @@ manage_sysctl() {
   echo -e "${C_YELLOW}2)${C_WHITE} بازگردانی به حالت پیش‌فرض (حذف کانفیگ)"
   echo -e "${C_YELLOW}3)${C_WHITE} بازگشت به منوی بهینه‌سازی"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
-  # FIX: Robust prompt
   printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
   read -r choice
+  
+  # --- FIX: Input Validation ---
+  if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+      choice=-1
+  fi
   
   case $choice in
     1)
       log_message "INFO" "در حال اعمال کانفیگ بهینه سازی در فایل ${sysctl_conf_file}..."
       create_backup "$sysctl_conf_file"
       
-      # ابتدا تنظیمات اصلی و بدون ریسک را می‌نویسیم
       cat > "$sysctl_conf_file" << 'EOF'
 # Full System Optimization by Script
 net.core.rmem_max = 134217728
@@ -1489,10 +1514,8 @@ fs.nr_open = 2097152
 net.core.default_qdisc = fq
 EOF
 
-      # **بخش هوشمند**: بررسی می‌کنیم که ماژول نت فیلتر فعال است یا نه
       if lsmod | grep -q 'nf_conntrack'; then
           log_message "INFO" "ماژول Netfilter (nf_conntrack) فعال است. در حال افزودن تنظیمات مربوطه..."
-          # اگر فعال بود، تنظیمات مربوطه را به انتهای فایل اضافه می‌کنیم
           cat >> "$sysctl_conf_file" << EOF
 net.netfilter.nf_conntrack_max = 1048576
 net.netfilter.nf_conntrack_tcp_timeout_established = 432000
@@ -1501,7 +1524,6 @@ EOF
           log_message "WARN" "ماژول Netfilter (nf_conntrack) فعال نیست. از تنظیمات مربوطه صرف نظر شد."
       fi
 
-      # در نهایت، تمام تنظیمات موجود در فایل را با یک دستور اعمال می‌کنیم
       if sysctl -p "$sysctl_conf_file"; then
           log_message "SUCCESS" "کانفیگ کامل Sysctl با موفقیت اعمال شد."
       else
@@ -1547,41 +1569,34 @@ run_packet_loss_test() {
     echo -e "${C_WHITE}برای توقف دستی، کلیدهای Ctrl+C را فشار دهید.${C_RESET}"
     echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
     
-    # اجرای MTR و ذخیره خروجی در یک متغیر
     local mtr_output
     mtr_output=$(mtr -r -c 50 --no-dns "$target_ip")
     
-    echo -e "$mtr_output" # نمایش نتیجه به کاربر
+    echo -e "$mtr_output"
     
     echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
     log_message "SUCCESS" "تست به پایان رسید."
     
-    # --- بخش تحلیل خودکار ---
     echo -e "${B_CYAN}--- تحلیل خودکار نتیجه ---${C_RESET}"
 
-    # استخراج میانگین پکت لاست و پینگ از آخرین هاپ (مقصد)
-    # -n: فقط خطوطی که با عدد شروع می‌شوند | tail -n 1: آخرین خط | awk: استخراج ستون‌ها
     local last_hop_stats
     last_hop_stats=$(echo "$mtr_output" | awk '$1 ~ /^[0-9]+(\.|\?)/' | tail -n 1)
 
     if [ -z "$last_hop_stats" ]; then
         echo -e "${C_RED}❌ تحلیل ناموفق بود. امکان استخراج اطلاعات از خروجی MTR وجود ندارد.${C_RESET}"
     else
-        # استخراج درصد پکت لاست (ستون سوم) و تبدیل آن به عدد صحیح
         local avg_loss
         avg_loss=$(echo "$last_hop_stats" | awk '{print $3}' | tr -d '[:alpha:]%')
-        avg_loss=${avg_loss%.*} # حذف بخش اعشاری
+        avg_loss=${avg_loss%.*}
 
-        # استخراج میانگین پینگ (ستون پنجم) و تبدیل آن به عدد صحیح
         local avg_ping
         avg_ping=$(echo "$last_hop_stats" | awk '{print $5}')
-        avg_ping=${avg_ping%.*} # حذف بخش اعشاری
+        avg_ping=${avg_ping%.*}
 
         echo -e "${C_WHITE}▪️ میانگین پکت لاست تا مقصد: ${C_YELLOW}${avg_loss:-0}%${C_RESET}"
         echo -e "${C_WHITE}▪️ میانگین پینگ تا مقصد: ${C_YELLOW}${avg_ping:-0} ms${C_RESET}"
         echo ""
 
-        # تحلیل وضعیت بر اساس پکت لاست
         local loss_status=""
         if [ "${avg_loss:-0}" -eq 0 ]; then
             loss_status="${G}عالی (بدون پکت لاست)${N}"
@@ -1592,7 +1607,6 @@ run_packet_loss_test() {
         fi
         echo -e "${C_WHITE}وضعیت پکت لاست: ${loss_status}"
 
-        # تحلیل وضعیت بر اساس پینگ
         local ping_status=""
         if [ "${avg_ping:-999}" -le 80 ]; then
             ping_status="${G}عالی (پینگ بسیار پایین)${N}"
@@ -1603,7 +1617,6 @@ run_packet_loss_test() {
         fi
         echo -e "${C_WHITE}وضعیت پینگ: ${ping_status}"
 
-        # نتیجه گیری نهایی
         echo -e "\n${B_MAGENTA}نتیجه‌گیری کلی:${C_RESET}"
         if [ "${avg_loss:-0}" -gt 2 ]; then
             echo -e "${R}این سرور به دلیل پکت لاست بالا (${avg_loss}%) برای کارهای حساس به پایداری مانند بازی یا تماس تصویری مناسب نیست.${N}"
@@ -1803,6 +1816,11 @@ advanced_mirror_test() {
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
     read -r mirror_choice
+    
+    # --- FIX: Input Validation ---
+    if ! [[ "$mirror_choice" =~ ^[0-9]+$ ]]; then
+        mirror_choice=-1
+    fi
 
     case $mirror_choice in
         1) apply_selected_mirror "$best_mirror_url" "$best_mirror_name" ;;
@@ -1856,6 +1874,12 @@ port_scanner_menu() {
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
     read -r choice
+
+    # --- FIX: Input Validation ---
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        choice=-1
+    fi
+
     case $choice in
         1)
             log_message "INFO" "در حال نصب NMAP..."
@@ -1922,6 +1946,12 @@ manage_firewall() {
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
+
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1
+        fi
+
         case $choice in
             1)
                 clear
@@ -1998,6 +2028,11 @@ manage_xui_offline_install() {
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
+
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1
+        fi
 
         case $choice in
             1)
@@ -2170,6 +2205,12 @@ manage_ip_health_check() {
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
+
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1
+        fi
+
         case $choice in
             1)
                 clear; log_message "INFO" "در حال اجرای تست اول..."
@@ -2204,6 +2245,11 @@ run_iperf3_test() {
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     printf "%b" "${B_MAGENTA}نقش این سرور چیست؟ ${C_RESET}"
     read -r iperf_choice
+
+    # --- FIX: Input Validation ---
+    if ! [[ "$iperf_choice" =~ ^[0-9]+$ ]]; then
+        iperf_choice=-1
+    fi
 
     case $iperf_choice in
         1)
@@ -2253,7 +2299,7 @@ manage_sanction_dns() {
         ["SHECAN"]="178.22.122.100 185.51.200.2"
         ["RADAR"]="10.202.10.10 10.202.10.11"
         ["ELECTRO"]="78.157.42.100 78.157.42.101"
-        ["BEGZAR"]="185.55.226.26 185.55.226.25"
+        ["BEGZAR"]="185.55.226.26 185.55.225.25"
         ["DNS PRO"]="87.107.110.109 87.107.110.110"
         ["403"]="10.202.10.202 10.202.10.102"
         ["GOOGLE"]="8.8.8.8 8.8.4.4"
@@ -2381,6 +2427,12 @@ manage_network_optimization() {
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
+
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1
+        fi
+
         case $choice in
             1) manage_tc_script ;;
             2) manage_sysctl ;;
@@ -2455,6 +2507,12 @@ manage_security() {
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
+
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1
+        fi
+
         case $choice in
             1) manage_firewall ;;
             2) manage_ssh_root ;;
@@ -2481,6 +2539,11 @@ manage_rathole_monitoring() {
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r choice
+
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1
+        fi
 
         case $choice in
             1)
@@ -2515,6 +2578,11 @@ manage_rat_hole_tunnel() {
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -r tunnel_choice
+
+        # --- FIX: Input Validation ---
+        if ! [[ "$tunnel_choice" =~ ^[0-9]+$ ]]; then
+            tunnel_choice=-1
+        fi
 
         case $tunnel_choice in
             1)
@@ -2560,8 +2628,312 @@ manage_rat_hole_tunnel() {
         esac
     done
 }
+# --- START: NEW IRNET TUNNEL FUNCTIONS ---
 
+run_kharej_script() {
+    log_message "INFO" "در حال آماده سازی اسکریپت نصب سرور خارج (KHAREJ)..."
+    local script_path="/tmp/kharej_setup.sh"
+    
+    # FIX: The stray '}' at the end of the EOF block has been removed.
+    cat > "$script_path" << 'EOF'
+#!/bin/bash
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+L_RED='\033[1;31m'
+NC='\033[0m'
+SERVICE_NAME="irnet-server.service"
+BINARY_PATH="/usr/local/bin/irnet"
+function install_or_update() {
+    echo -e "${YELLOW}شروع فرآیند نصب/بروزرسانی سرور تونل IRNET...${NC}"
+    echo -e "${BLUE}نصب ابزارهای مورد نیاز...${NC}"
+    apt update > /dev/null 2>&1
+    apt install -y curl tar openssl > /dev/null 2>&1
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64) ARCH="amd64" ;;
+        aarch64) ARCH="arm64" ;;
+        *) echo -e "${L_RED}معماری سیستم ($ARCH) پشتیبانی نمی‌شود.${NC}"; exit 1 ;;
+    esac
+    echo -e "${BLUE}دانلود هسته اصلی تونل IRNET...${NC}"
+    LATEST_VERSION=$(curl -s "https://api.github.com/repos/go-gost/gost/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//')
+    DOWNLOAD_URL="https://github.com/go-gost/gost/releases/download/v${LATEST_VERSION}/gost_${LATEST_VERSION}_linux_${ARCH}.tar.gz"
+    curl -L -o irnet.tar.gz $DOWNLOAD_URL
+    tar -zxvf irnet.tar.gz
+    mv gost ${BINARY_PATH}
+    chmod +x ${BINARY_PATH}
+    rm irnet.tar.gz README.md
+    echo -e "${GREEN}هسته IRNET نسخه ${LATEST_VERSION} با موفقیت نصب شد.${NC}"
+    change_settings
+}
+function change_settings() {
+    echo -e "\n${YELLOW}--- تنظیمات سرور ---${NC}"
+    read -p "لطفاً یک پورت برای تونل وارد کنید (پیشنهادی: بین 10000-65000): " TUNNEL_PORT
+    while [[ -z "$TUNNEL_PORT" || ! "$TUNNEL_PORT" =~ ^[0-9]+$ || "$TUNNEL_PORT" -lt 1 || "$TUNNEL_PORT" -gt 65535 ]]; do
+        read -p "ورودی نامعتبر است. لطفاً یک شماره پورت صحیح وارد کنید: " TUNNEL_PORT
+    done
+    TUNNEL_PASS=$(openssl rand -base64 16)
+    cat > /etc/systemd/system/${SERVICE_NAME} << EOL
+[Unit]
+Description=IRNET Server Tunnel
+After=network.target
+[Service]
+Type=simple
+ExecStart=${BINARY_PATH} -L "h2://:${TUNNEL_PASS}@:${TUNNEL_PORT}"
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
+EOL
+    systemctl daemon-reload
+    systemctl enable ${SERVICE_NAME}
+    systemctl restart ${SERVICE_NAME}
+    echo -e "${GREEN}✔ تنظیمات با موفقیت اعمال و سرویس راه‌اندازی شد.${NC}"
+    echo -e "\n${BLUE}============================================================${NC}"
+    echo -e "${CYAN}      اطلاعات جدید برای اتصال سرور ایران      ${NC}"
+    echo -e "${BLUE}============================================================${NC}"
+    echo -e "${GREEN}پورت سرور خارج:${NC} ${YELLOW}${TUNNEL_PORT}${NC}"
+    echo -e "${GREEN}پسورد تونل:${NC} ${YELLOW}${TUNNEL_PASS}${NC}"
+    echo -e "${BLUE}============================================================${NC}\n"
+}
+function uninstall() {
+    echo -e "${YELLOW}آیا از حذف کامل تونل IRNET مطمئن هستید؟ (y/n)${NC}"
+    read -r -p " " response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        systemctl stop ${SERVICE_NAME}
+        systemctl disable ${SERVICE_NAME}
+        rm /etc/systemd/system/${SERVICE_NAME}
+        rm ${BINARY_PATH}
+        systemctl daemon-reload
+        echo -e "${GREEN}✔ تونل IRNET با موفقیت حذف شد.${NC}"
+    else
+        echo -e "${L_RED}عملیات حذف لغو شد.${NC}"
+    fi
+}
+function show_logs() {
+    journalctl -u ${SERVICE_NAME} -f
+}
+function show_status() {
+    systemctl status ${SERVICE_NAME} --no-pager
+}
+function restart_service() {
+    systemctl restart ${SERVICE_NAME}
+    echo -e "${GREEN}✔ سرویس با موفقیت راه‌اندازی مجدد شد.${NC}"
+    sleep 1
+    show_status
+}
+while true; do
+    clear
+    echo -e "${CYAN}===========================================${NC}"
+    echo -e "${YELLOW}   منوی مدیریت سرور تونل IRNET (خارج)   ${NC}"
+    echo -e "${CYAN}===========================================${NC}"
+    echo -e " 1. نصب یا بروزرسانی تونل"
+    echo -e " 2. تغییر پورت/پسورد"
+    echo -e " 3. حذف کامل تونل"
+    echo -e " 4. مشاهده لاگ‌ها (برای خروج Ctrl+C را بزنید)"
+    echo -e " 5. بررسی وضعیت سرویس"
+    echo -e " 6. راه‌اندازی مجدد"
+    echo -e " 7. خروج"
+    echo -e "${CYAN}===========================================${NC}"
+    read -p "لطفاً یک گزینه را انتخاب کنید: " choice
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        choice=-1
+    fi
+    case $choice in
+        1) install_or_update ;;
+        2) change_settings ;;
+        3) uninstall ;;
+        4) show_logs ;;
+        5) show_status ;;
+        6) restart_service ;;
+        7) exit 0 ;;
+        *) echo -e "${L_RED}انتخاب نامعتبر است. لطفاً دوباره تلاش کنید.${NC}" ; sleep 2 ;;
+    esac
+    read -n 1 -s -r -p "برای بازگشت به منو، هر کلیدی را فشار دهید..."
+done
+EOF
 
+    chmod +x "$script_path"
+    clear
+    bash "$script_path"
+    rm -f "$script_path" &>/dev/null
+    log_message "INFO" "اسکریپت نصب سرور خارج اجرا شد."
+    read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+}
+
+run_iran_script() {
+    log_message "INFO" "در حال آماده سازی اسکریپت نصب سرور ایران (IRAN)..."
+    local script_path="/tmp/iran_setup.sh"
+    
+    # FIX: The stray '}' at the end of the EOF block has been removed.
+    cat > "$script_path" << 'EOF'
+#!/bin/bash
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+L_RED='\033[1;31m'
+NC='\033[0m'
+SERVICE_NAME="irnet-client.service"
+BINARY_PATH="/usr/local/bin/irnet"
+CONFIG_FILE="/etc/irnet/client-config.json"
+function install_or_update() {
+    echo -e "${YELLOW}شروع فرآیند نصب/بروزرسانی کلاینت تونل IRNET...${NC}"
+    echo -e "${BLUE}نصب ابزارهای مورد نیاز...${NC}"
+    apt update > /dev/null 2>&1
+    apt install -y curl tar > /dev/null 2>&1
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64) ARCH="amd64" ;;
+        aarch64) ARCH="arm64" ;;
+        *) echo -e "${L_RED}معماری سیستم ($ARCH) پشتیبانی نمی‌شود.${NC}"; exit 1 ;;
+    esac
+    echo -e "${BLUE}دانلود هسته اصلی تونل IRNET...${NC}"
+    LATEST_VERSION=$(curl -s "https://api.github.com/repos/go-gost/gost/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//')
+    DOWNLOAD_URL="https://github.com/go-gost/gost/releases/download/v${LATEST_VERSION}/gost_${LATEST_VERSION}_linux_${ARCH}.tar.gz"
+    curl -L -o irnet.tar.gz $DOWNLOAD_URL
+    tar -zxvf irnet.tar.gz
+    mv gost ${BINARY_PATH}
+    chmod +x ${BINARY_PATH}
+    rm irnet.tar.gz README.md
+    echo -e "${GREEN}هسته IRNET نسخه ${LATEST_VERSION} با موفقیت نصب شد.${NC}"
+    change_settings
+}
+function change_settings() {
+    echo -e "\n${YELLOW}--- تنظیمات کلاینت ---${NC}"
+    read -p "لطفاً آدرس IP سرور خارج را وارد کنید: " ABROAD_IP
+    read -p "لطفاً پورت سرور خارج را وارد کنید: " ABROAD_PORT
+    read -p "لطفاً پسورد تونل را وارد کنید: " TUNNEL_PASS
+    read -p "یک پورت برای پراکسی محلی وارد کنید (مثلا 1080): " LOCAL_SOCKS_PORT
+    mkdir -p /etc/irnet
+    echo "{\"abroad_ip\":\"${ABROAD_IP}\",\"abroad_port\":\"${ABROAD_PORT}\",\"tunnel_pass\":\"${TUNNEL_PASS}\",\"local_port\":\"${LOCAL_SOCKS_PORT}\"}" > ${CONFIG_FILE}
+    cat > /etc/systemd/system/${SERVICE_NAME} << EOL
+[Unit]
+Description=IRNET Client Tunnel
+After=network.target
+[Service]
+Type=simple
+ExecStart=${BINARY_PATH} -L socks5://:${LOCAL_SOCKS_PORT} -F "h2://${TUNNEL_PASS}@${ABROAD_IP}:${ABROAD_PORT}"
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
+EOL
+    systemctl daemon-reload
+    systemctl enable ${SERVICE_NAME}
+    systemctl restart ${SERVICE_NAME}
+    echo -e "${GREEN}✔ تنظیمات با موفقیت اعمال و سرویس راه‌اندازی شد.${NC}"
+    display_info
+}
+function uninstall() {
+    echo -e "${YELLOW}آیا از حذف کامل کلاینت IRNET مطمئن هستید؟ (y/n)${NC}"
+    read -r -p " " response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        systemctl stop ${SERVICE_NAME}
+        systemctl disable ${SERVICE_NAME}
+        rm /etc/systemd/system/${SERVICE_NAME}
+        rm ${BINARY_PATH}
+        rm -rf /etc/irnet
+        systemctl daemon-reload
+        echo -e "${GREEN}✔ کلاینت IRNET با موفقیت حذف شد.${NC}"
+    else
+        echo -e "${L_RED}عملیات حذف لغو شد.${NC}"
+    fi
+}
+function display_info() {
+    if [ -f ${CONFIG_FILE} ]; then
+        LOCAL_SOCKS_PORT=$(grep -oP '"local_port":"\K[^"]+' ${CONFIG_FILE})
+        echo -e "\n${BLUE}==================================================================${NC}"
+        echo -e "${CYAN}      اطلاعات اتصال شما      ${NC}"
+        echo -e "${BLUE}==================================================================${NC}"
+        echo -e "${GREEN}آدرس پراکسی:${NC} ${YELLOW}آدرس IP سرور ایران شما${NC}"
+        echo -e "${GREEN}پورت پراکسی:${NC} ${YELLOW}${LOCAL_SOCKS_PORT}${NC}"
+        echo -e "${GREEN}پروتکل:${NC} ${YELLOW}SOCKS5${NC}"
+        echo -e "${BLUE}==================================================================${NC}\n"
+    else
+        echo -e "${L_RED}اطلاعاتی یافت نشد. لطفاً ابتدا تونل را نصب کنید.${NC}"
+    fi
+}
+function show_logs() {
+    journalctl -u ${SERVICE_NAME} -f
+}
+function show_status() {
+    systemctl status ${SERVICE_NAME} --no-pager
+}
+function restart_service() {
+    systemctl restart ${SERVICE_NAME}
+    echo -e "${GREEN}✔ سرویس با موفقیت راه‌اندازی مجدد شد.${NC}"
+    sleep 1
+    show_status
+}
+while true; do
+    clear
+    echo -e "${CYAN}===========================================${NC}"
+    echo -e "${YELLOW}   منوی مدیریت کلاینت تونل IRNET (ایران)   ${NC}"
+    echo -e "${CYAN}===========================================${NC}"
+    echo -e " 1. نصب یا بروزرسانی تونل"
+    echo -e " 2. تغییر تنظیمات اتصال"
+    echo -e " 3. نمایش اطلاعات اتصال"
+    echo -e " 4. حذف کامل تونل"
+    echo -e " 5. مشاهده لاگ‌ها (برای خروج Ctrl+C را بزنید)"
+    echo -e " 6. بررسی وضعیت سرویس"
+    echo -e " 7. راه‌اندازی مجدد"
+    echo -e " 8. خروج"
+    echo -e "${CYAN}===========================================${NC}"
+    read -p "لطفاً یک گزینه را انتخاب کنید: " choice
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        choice=-1
+    fi
+    case $choice in
+        1) install_or_update ;;
+        2) change_settings ;;
+        3) display_info ;;
+        4) uninstall ;;
+        5) show_logs ;;
+        6) show_status ;;
+        7) restart_service ;;
+        8) exit 0 ;;
+        *) echo -e "${L_RED}انتخاب نامعتبر است. لطفاً دوباره تلاش کنید.${NC}" ; sleep 2 ;;
+    esac
+    read -n 1 -s -r -p "برای بازگشت به منو، هر کلیدی را فشار دهید..."
+done
+EOF
+
+    chmod +x "$script_path"
+    clear
+    bash "$script_path"
+    rm -f "$script_path" &>/dev/null
+    log_message "INFO" "اسکریپت نصب سرور ایران اجرا شد."
+    read -n 1 -s -r -p $'\nبرای ادامه، کلیدی را فشار دهید...'
+}
+
+manage_irnet_tunnel() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- مدیریت تانل IRNET ---${C_RESET}\n"
+        echo -e "${C_YELLOW}1) ${C_WHITE}نصب اسکریپت برای سرور خارج مرحله اول"
+        echo -e "${C_YELLOW}2) ${C_WHITE}نصب اسکریپت برای سرور ایران مرحله دوم"
+        echo -e "${C_YELLOW}3) ${C_WHITE}بازگشت به منوی اصلی"
+        echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
+        read -r choice
+        
+        # --- FIX: Input Validation ---
+        if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+            choice=-1
+        fi
+
+        case $choice in
+            1) run_kharej_script ;;
+            2) run_iran_script ;;
+            3) return ;;
+            *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
+        esac
+    done
+}
+
+# --- END: NEW IRNET TUNNEL FUNCTIONS ---
 # --- SCRIPT MAIN LOOP ---
 check_dependencies_at_start() {
     local missing=""
@@ -2596,27 +2968,34 @@ main() {
       echo -e "   ${C_YELLOW}2) ${B_CYAN}امنیت و دسترسی"
       echo -e "   ${C_YELLOW}3) ${C_WHITE}آپدیت و نصب پکیج های لازم"
       echo -e "   ${C_YELLOW}4) ${B_GREEN}نصب آفلاین پنل TX-UI"
-      echo -e "   ${C_YELLOW}5) ${B_CYAN}تانل رت هول بهینه ایران"
+      echo -e "   ${C_YELLOW}5) ${B_CYAN}تانل ایرنت (IRNET Tunnel)"
+      echo -e "   ${C_YELLOW}6) ${B_CYAN}تانل رت هول بهینه ایران"
       echo ""
-      echo -e "   ${C_YELLOW}6) ${C_RED}خروج"
+      echo -e "   ${C_YELLOW}7) ${C_RED}خروج"
       echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
       printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
       read -r main_choice
+
+      # --- FIX: Input Validation ---
+      if ! [[ "$main_choice" =~ ^[0-9]+$ ]]; then
+          main_choice=-1
+      fi
 
       case $main_choice in
         1) manage_network_optimization ;;
         2) manage_security ;;
         3) install_core_packages ;;
         4) manage_xui_offline_install ;;
-        5) manage_rat_hole_tunnel ;;
-        6)
+        5) manage_irnet_tunnel ;; # <-- گزینه جدید شما
+        6) manage_rat_hole_tunnel ;;
+        7)
           clear
           log_message "INFO" "خروج از اسکریپت."
           echo -e "\n${B_CYAN}خدا نگهدار!${C_RESET}\n"
           exit 0
           ;;
         *)
-          echo -e "\n${C_RED}گزینه نامعتبر است! لطفاً عددی بین 1 تا 6 وارد کنید.${C_RESET}"
+          echo -e "\n${C_RED}گزینه نامعتبر است! لطفاً عددی بین 1 تا 7 وارد کنید.${C_RESET}"
           read -n 1 -s -r -p "برای ادامه، کلیدی را فشار دهید..."
           ;;
       esac
