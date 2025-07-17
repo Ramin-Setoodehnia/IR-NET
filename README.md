@@ -75,7 +75,7 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?
 * تست پینگ سرورهای DNS
 * پینگ خارج به داخل
 * پینگ داخل به خارج
-* ست پکت لاست بین سرور (MTR)
+* تست پکت لاست بین سرور (MTR)
 * تست سرعت خودکار ایران و خارج (IPERF3)
 * دی ان اس رفع تحریم داخلی
 
@@ -83,7 +83,7 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?
 * مدیریت فایروال (UFW)
 * مدیریت ورود کاربر روت
 * تغییر پورت SSH
-*  ریستارت خودکار XRAY
+* ریستارت خودکار XRAY
 * مدیریت ریبوت خودکار سرور
 * فعال/غیرفعال کردن IPV6
 * اسکنر پورت
