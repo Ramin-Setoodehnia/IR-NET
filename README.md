@@ -8,9 +8,8 @@
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/github/stars/cy33r/IR-NET?style=social" alt="GitHub Stars">
 
-   
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/f2554461-a499-400a-b0c2-20b269264932" alt="IR-NET-Logo"/>
+  <img src="https://github.com/user-attachments/assets/a75022b0-0f79-4f77-9c61-039f875a9bdb" alt="IR-NET-Logo"/>
 </p>
 
 <h1 align="center">IR-NET - مجموعه ابزار مدیریت سرور اوبونتو</h1>
