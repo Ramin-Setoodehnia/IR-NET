@@ -29,10 +29,10 @@
 snap install jq
 ```
 ```bash
-bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-FA.sh?$(date +%s)")
+bash <(curl -sL "https://raw.githubusercontent.com/Ramin-Setoodehnia/IR-NET/main/MENU-FA.sh?$(date +%s)")
 ```
 ```bash
-bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?$(date +%s)")
+bash <(curl -sL "https://raw.githubusercontent.com/Ramin-Setoodehnia/IR-NET/main/MENU-EN.sh?$(date +%s)")
 ```
 
 **روش ۲ (جایگزین با CDN):**
