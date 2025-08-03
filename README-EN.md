@@ -3,7 +3,7 @@
 <div dir="ltr">
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-13-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Version-15-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Ubuntu_22.04+-orange.svg" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/github/stars/cy33r/IR-NET?style=social" alt="GitHub Stars">
@@ -47,64 +47,38 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?
 
 `IR-NET` IS A COMPLETE TOOLBOX THAT PRESENTS COMPLEX SERVER MANAGEMENT TASKS IN SIMPLE MENUS:
 
-#### 🌐 NETWORK AND CONNECTION OPTIMIZATION
+#### 🌐 NETWORK & CONNECTION OPTIMIZATION
 * MANAGE TCP OPTIMIZERS (BBR, HYBLA, CUBIC)
-* ENABLE/DISABLE SERVER PING
+* CUSTOM SYSCTL OPTIMIZER
+* CUSTOM QLEEN & MTU OPTIMIZER (PERSISTENT)
 * FIX WHATSAPP DATE/TIME ISSUE
 * SPEED OPTIMIZATION (TC)
-* ADVANCED NETWORK STACK OPTIMIZATION
-* MANAGE & FIND BEST DNS
-* ADVANCED APT MIRROR FINDER
-* PING TEST DNS SERVERS
-* PING INBOUND (FROM ABROAD TO IRAN)
-* PING OUTBOUND (FROM IRAN TO ABROAD)
-* PACKET LOSS TEST BETWEEN SERVERS (MTR)
-* AUTOMATED SPEED TEST (IPERF3)
-* ANTI-SANCTION DNS (IRAN)
+* ADVANCED NETWORK SUBSTRATE OPTIMIZATION (PERSISTENT)
+* MANAGE AND FIND BEST DNS
+* FIND FASTEST APT REPOSITORY (ADVANCED)
+* INTER-SERVER PACKET LOSS TEST (MTR)
+* ANTI-SANCTION DNS
 
-#### 🛡️ SECURITY AND ACCESS
-* FIREWALL MANAGEMENT (UFW)
-* MANAGE ROOT LOGIN
+#### 🛡️ SECURITY & ACCESS
+* MANAGE FIREWALL & PING (UFW)
+* MANAGE SERVER PING (ICMP)
+* MANAGE ROOT USER LOGIN
 * CHANGE SSH PORT
-* AUTOMATIC XRAY RESTART
+* CHANGE SERVER PASSWORD
+* ABUSE DEFENDER
+* X-UI PANEL ASSISTANT (MULTI-ADMIN)
+* AUTO-RESTART XRAY
 * MANAGE AUTOMATIC SERVER REBOOT
 * ENABLE/DISABLE IPV6
 * PORT SCANNER
-* SCAN ARVANCLOUD IP RANGES
-* CHECK IP HEALTH
+* SCAN ARVAN CLOUD RANGES
+* IP HEALTH CHECK
 * SCAN WARP ENDPOINTS
 
-#### 🚀 UPDATE & INSTALL CORE PACKAGES
+#### 🚀 UPDATE & INSTALL PACKAGES
 
-#### ⌛️ OFFLINE TX-UI PANEL INSTALL
-* INSTALL PANEL FROM SERVER FILE
-* OFFLINE INSTALLATION GUIDE
-
-#### 💎 IRNET TUNNEL (MULTI-PROTOCOL)
-* H2 PROTOCOL (STANDARD AND FAST)
-* QUIC PROTOCOL (MORE STABLE ON WEAK NETWORKS)
-* VLESS PROTOCOL (STEALTH MODE, REQUIRES A DOMAIN)
-  
-#### ⚙️ OPTIMIZED RATHOLE TUNNEL
-* INSTALL RATHOLE TUNNEL (WITH MAIN SCRIPT)
-* RATHOLE OPTIMIZER & MONITORING
+#### ⚙️ INSTALL / UPDATE TX-UI PANEL SMART
 * GUIDE
-
-## 🏞️ SCREENSHOTS OF THE SCRIPT ENVIRONMENT
-
-<details>
-  <summary><b>🖼️ CLICK HERE TO SEE THE IMAGES</b></summary>
-  <br>
-  <p align="center">
-    <img src="https://github.com/user-attachments/assets/0938de54-154e-4b61-9452-b759f02f7d5e" alt="IR-NET-Screenshot-1" width="70%"/>
-    <br><br>
-    <img src="https://github.com/user-attachments/assets/bb6c4406-28ab-461d-93f5-d4789ccafcb4" alt="IR-NET-Screenshot-2" width="70%"/>
-    <br><br>
-    <img src="https://github.com/user-attachments/assets/6cb7f68f-fe97-4e88-8813-43a81dc8f242" alt="IR-NET-Screenshot-3" width="70%"/>
-    <br><br>
-    <img src="https://github.com/user-attachments/assets/ca9df664-4441-4bc4-8f3e-aa2a6d07e82b" alt="IR-NET-Screenshot-4" width="70%"/>
-  </p>
-</details>
 
 ---
 ## 🤝 CONTRIBUTION AND AUTHORS
