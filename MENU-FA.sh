@@ -97,7 +97,7 @@ restore_backup() {
 }
 
 check_service_status() {
-    local service_name=$1
+    local service_name="$1"
     if systemctl is-active --quiet "$service_name"; then
         log_message "SUCCESS" "SERVICE $service_name IS ACTIVE AND RUNNING."
     else
@@ -200,14 +200,13 @@ check_ping_status() {
 }
 
 is_valid_ip() {
-    local ip=$1
+    local ip="$1"
     if [[ "$ip" =~ ^([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$ || "$ip" =~ ^(([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])) || "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
         return 0
     else
         return 1
     fi
 }
-
 # --- SYSTEM STATUS ---
 # [+] REVISED TO FIX DISPLAY AND DETECTION ISSUES
 show_enhanced_system_status() {
@@ -230,9 +229,12 @@ show_enhanced_system_status() {
     # Wait for all background jobs to complete
     wait
     
-    local public_ipv4=$(cat "$TMP_IPV4")
-    local public_ipv6=$(cat "$TMP_IPV6")
-    local provider=$(cat "$TMP_ISP")
+    local public_ipv4
+    public_ipv4=$(cat "$TMP_IPV4")
+    local public_ipv6
+    public_ipv6=$(cat "$TMP_IPV6")
+    local provider
+    provider=$(cat "$TMP_ISP")
     
     # Clean up temporary files
     rm -f "$TMP_IPV4" "$TMP_IPV6" "$TMP_ISP"
@@ -253,17 +255,28 @@ show_enhanced_system_status() {
 
 
     # Use a wider cut for CPU model to prevent awkward wrapping
-    local cpu_model=$(grep "model name" /proc/cpuinfo | head -1 | cut -d':' -f2 | sed 's/^ *//' | cut -c1-45)
-    local cpu_cores=$(nproc)
-    local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1 2>/dev/null || echo "N/A")
-    local mem_total=$(free -h | grep "Mem:" | awk '{print $2}')
-    local mem_used=$(free -h | grep "Mem:" | awk '{print $3}')
-    local mem_percent=$(free | grep "Mem:" | awk '{printf "%.0f", ($3/$2)*100.0}')
-    local load_avg=$(uptime | awk -F'load average:' '{print $2}' | sed 's/^ *//' | cut -d',' -f1)
-    local uptime_str=$(uptime -p 2>/dev/null | sed 's/up //')
-    local ipv6_status_val=$(check_ipv6_status)
-    local ping_status_val=$(check_ping_status)
-    local ubuntu_version=$(lsb_release -sr 2>/dev/null || echo 'N/A')
+    local cpu_model
+    cpu_model=$(grep "model name" /proc/cpuinfo | head -1 | cut -d':' -f2 | sed 's/^ *//' | cut -c1-45)
+    local cpu_cores
+    cpu_cores=$(nproc)
+    local cpu_usage
+    cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1 2>/dev/null || echo "N/A")
+    local mem_total
+    mem_total=$(free -h | grep "Mem:" | awk '{print $2}')
+    local mem_used
+    mem_used=$(free -h | grep "Mem:" | awk '{print $3}')
+    local mem_percent
+    mem_percent=$(free | grep "Mem:" | awk '{printf "%.0f", ($3/$2)*100.0}')
+    local load_avg
+    load_avg=$(uptime | awk -F'load average:' '{print $2}' | sed 's/^ *//' | cut -d',' -f1)
+    local uptime_str
+    uptime_str=$(uptime -p 2>/dev/null | sed 's/up //')
+    local ipv6_status_val
+    ipv6_status_val=$(check_ipv6_status)
+    local ping_status_val
+    ping_status_val=$(check_ping_status)
+    local ubuntu_version
+    ubuntu_version=$(lsb_release -sr 2>/dev/null || echo 'N/A')
     
     local current_mirror_uri
     if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
@@ -278,7 +291,8 @@ show_enhanced_system_status() {
         current_mirror_host="N/A"
     fi
 
-    local private_ips=$(ip -o addr show | awk '{print $4}' | cut -d/ -f1 | grep -E '(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)' | tr '\n' ' ' | xargs)
+    local private_ips
+    private_ips=$(ip -o addr show | awk '{print $4}' | cut -d/ -f1 | grep -E '(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)' | tr '\n' ' ' | xargs)
     [ -z "$private_ips" ] && private_ips="N/A"
     
     local dns_servers
@@ -323,7 +337,8 @@ show_enhanced_system_status() {
         (( ${#label} > max_label_len )) && max_label_len=${#label}
     done
     
-    local terminal_width=$(tput cols 2>/dev/null || echo 80)
+    local terminal_width
+    terminal_width=$(tput cols 2>/dev/null || echo 80)
     local max_value_width=$(( terminal_width - max_label_len - 7 ))
     [[ $max_value_width -lt 20 ]] && max_value_width=20
 
@@ -331,23 +346,26 @@ show_enhanced_system_status() {
     for i in "${!labels[@]}"; do
         local label="${labels[$i]}"
         local value="${values[$i]}"
-        local clean_value=$(echo -e "$value" | sed 's/\x1b\[[0-9;]*m//g')
+        local clean_value
+        clean_value=$(echo -e "$value" | sed 's/\x1b\[[0-9;]*m//g')
         
         if (( ${#clean_value} > max_value_width )); then
+            local value_part
             value_part=$(echo -e "${value}" | cut -c 1-$((max_value_width - 3)))
             value="${value_part}...${N}"
         fi
         
-        local visual_value_len=$(get_visual_length "$value")
+        local visual_value_len
+        visual_value_len=$(get_visual_length "$value")
         
         printf "${B_BLUE}║${C_WHITE} %s" "$label"
-        printf "%*s" $((max_label_len - ${#label})) ""
+        printf "%*s" "$((max_label_len - ${#label}))" ""
         
         printf " ${B_BLUE}│${C_CYAN} %s" "$value"
 
         local padding=$(( max_value_width - visual_value_len ))
         [[ $padding -lt 0 ]] && padding=0
-        printf "%*s" $padding ""
+        printf "%*s" "$padding" ""
         
         printf " ${B_BLUE}║\n"
     done
@@ -479,7 +497,7 @@ install_dependencies() {
         return 1
     fi
 
-    local deps=("curl" "wget" "socat" "ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq" "bc" "lsb-release" "netcat-openbsd" "nmap" "fping" "uuid-runtime" "iptables-persistent" "python3" "python3-pip" "fail2ban" "chkrootkit")
+    local deps=("curl" "wget" "socat" "ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq" "bc" "lsb-release" "netcat-openbsd" "nmap" "fping" "uuid-runtime" "iptables-persistent" "python3" "python3-pip" "fail2ban" "chkrootkit" "unzip")
     local missing_deps=()
     
     for dep in "${deps[@]}"; do
@@ -558,7 +576,6 @@ fix_etc_hosts() {
     fi
     return 0
 }
-
 # [+] FIXED DNS APPLICATION LOGIC
 apply_dns_persistent() {
     local dns1="$1"
@@ -832,7 +849,7 @@ Wants=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c "source $CONFIG_DIR/mtu.conf && /sbin/ip link set dev \\\$INTERFACE mtu \\\$OPTIMAL_MTU"
+ExecStart=/bin/bash -c "source \"$CONFIG_DIR/mtu.conf\" && /sbin/ip link set dev \\\$INTERFACE mtu \\\$OPTIMAL_MTU"
 
 [Install]
 WantedBy=multi-user.target
@@ -1007,11 +1024,11 @@ show_as_bbr_menu() {
         case "$choice" in
             1)
                 intelligent_optimize
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             2)
                 restore_defaults
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             3)
                 log_message "INFO" "RETURNING TO THE MAIN MENU."
@@ -1035,7 +1052,7 @@ manage_dns() {
         log_message "WARN" "FPING' TOOL NOT FOUND. ATTEMPTING TO INSTALL AUTOMATICALLY..."
         if ! install_dependencies; then
             log_message "ERROR" "AUTOMATIC INSTALLATION OF 'FPING' FAILED."
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
             return
         fi
         log_message "SUCCESS" "'FPING' TOOL INSTALLED SUCCESSFULLY. CONTINUING..."
@@ -1055,7 +1072,7 @@ manage_dns() {
     
     find_and_set_best_dns() {
         local -n dns_list=$1
-        local list_name=$2
+        local list_name="$2"
         echo -e "\n${B_CYAN}در حال تست پینگ از لیست DNS های ${list_name} با ابزار FPING...${C_RESET}"
         
         local fping_results
@@ -1117,7 +1134,7 @@ manage_dns() {
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_ipv6() {
@@ -1166,7 +1183,7 @@ manage_ipv6() {
         3) return ;;
         *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
     esac
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 manage_ssh_root() {
   clear
@@ -1215,7 +1232,7 @@ manage_ssh_root() {
     3) return ;;
     *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
   esac
-  read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+  read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_reboot_cron() {
@@ -1250,7 +1267,7 @@ manage_reboot_cron() {
         5) return ;;
         *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
     esac
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 change_server_password() {
     clear
@@ -1260,9 +1277,8 @@ change_server_password() {
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     passwd
     log_message "SUCCESS" "PASSWORD CHANGE PROCESS EXECUTED BY USER."
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
-
 # ###########################################################################
 # --- TCP Optimizers and Panel Management ---
 # ###########################################################################
@@ -1355,13 +1371,14 @@ EOF
     sysctl -p /etc/sysctl.d/99-custom-optimizer.conf &>/dev/null
     log_message "SUCCESS" "CUBIC (UNSTABLE NETWORK) PROFILE APPLIED SUCCESSFULLY."
 }
-
 manage_tcp_optimizers() {
     while true; do
         clear
         echo -e "${B_CYAN}--- مدیریت بهینه‌سازهای TCP ---${C_RESET}\n"
-        local current_qdisc=$(sysctl -n net.core.default_qdisc)
-        local current_tcp_algo=$(sysctl -n net.ipv4.tcp_congestion_control)
+        local current_qdisc
+        current_qdisc=$(sysctl -n net.core.default_qdisc)
+        local current_tcp_algo
+        current_tcp_algo=$(sysctl -n net.ipv4.tcp_congestion_control)
         echo -e "الگوریتم فعال: ${B_GREEN}${current_tcp_algo^^} ${C_RESET} | صف فعال: ${B_GREEN}${current_qdisc^^}${C_RESET}\n"
 
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "نصب بهینه ساز BBR PLUS"
@@ -1383,7 +1400,7 @@ manage_tcp_optimizers() {
             6) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
     done
 }
 manage_txui_panel() {
@@ -1402,7 +1419,8 @@ manage_txui_panel() {
         return
     fi
 
-    local ARCH=$(uname -m)
+    local ARCH
+    ARCH=$(uname -m)
     local XUI_ARCH
     case "${ARCH}" in
       x86_64 | x64 | amd64) XUI_ARCH="amd64" ;;
@@ -1427,7 +1445,7 @@ manage_txui_panel() {
         if ! wget -O "$archive_path" "$download_url"; then
             log_message "ERROR" "DOWNLOAD FAILED. PLEASE CHECK YOUR INTERNET CONNECTION."
             rm -f "$archive_path"
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
             return
         fi
         log_message "SUCCESS" "LATEST PANEL VERSION DOWNLOADED SUCCESSFULLY."
@@ -1442,14 +1460,14 @@ manage_txui_panel() {
     tar -zxvf "$archive_path" -C /root/
     if [ ! -d "/root/x-ui" ]; then
         log_message "ERROR" "COULD NOT FIND /root/x-ui DIRECTORY AFTER EXTRACTION. THE ARCHIVE MAY BE CORRUPT."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
 
     cd /root/x-ui
     if [ ! -f "x-ui.sh" ]; then
         log_message "ERROR" "INSTALLATION SCRIPT 'x-ui.sh' NOT FOUND IN EXTRACTED FILES."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
 
@@ -1461,7 +1479,104 @@ manage_txui_panel() {
     echo -e "${C_YELLOW}اگر پنل به درستی نصب شده باشد، منوی آن را مشاهده کردید.${C_RESET}"
     echo -e "${C_WHITE}اکنون می‌توانید برای مدیریت پنل از دستور 'x-ui' استفاده کنید.${C_RESET}"
 
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+}
+
+# ###########################################################################
+# --- 3X-UI, WhatsApp Fix, and Other Utilities ---
+# ###########################################################################
+
+manage_3xui_panel() {
+    clear
+    log_message "INFO" "--- 3X-UI PANEL MANAGEMENT ---"
+
+    echo -e "${B_CYAN}--- نصب / به‌روزرسانی پنل 3X-UI ---${C_RESET}\n"
+    echo -e "${C_WHITE}این اسکریپت پنل 3X-UI (اثر MHSanaei) را نصب یا به‌روزرسانی می‌کند.${C_RESET}"
+    echo -e "${C_YELLOW}روش نصب هوشمند است:${C_RESET}"
+    echo -e "${C_YELLOW}  - اگر فایل فشرده پنل در مسیر /root موجود باشد، نصب به صورت دستی (آفلاین) انجام می‌شود.${C_RESET}"
+    echo -e "${C_YELLOW}  - در غیر این صورت، نصب به صورت خودکار (آنلاین) از گیت‌هاب انجام خواهد شد.${C_RESET}\n"
+
+    printf "%b" "${B_MAGENTA}آیا برای شروع نصب / به‌روزرسانی آماده‌اید؟ (Y/N): ${C_RESET}"
+    read -e -r choice
+    if [[ ! "$choice" =~ ^[yY]$ ]]; then
+        log_message "INFO" "3X-UI PANEL INSTALLATION CANCELED."
+        return
+    fi
+
+    # Detect architecture
+    local ARCH
+    ARCH=$(uname -m)
+    local XUI_ARCH
+    case "${ARCH}" in
+      x86_64 | x64 | amd64) XUI_ARCH="amd64" ;;
+      i*86 | x86) XUI_ARCH="386" ;;
+      armv8* | armv8 | arm64 | aarch64) XUI_ARCH="arm64" ;;
+      armv7* | armv7) XUI_ARCH="armv7" ;;
+      armv6* | armv6) XUI_ARCH="armv6" ;;
+      armv5* | armv5) XUI_ARCH="armv5" ;;
+      s390x) XUI_ARCH='s390x' ;;
+      *) XUI_ARCH="amd64" ;;
+    esac
+    
+    local archive_name="x-ui-linux-${XUI_ARCH}.tar.gz"
+    local archive_path="/root/${archive_name}"
+    local install_success=false
+
+    if [ -f "$archive_path" ]; then
+        # --- Manual/Offline Installation (Improved) ---
+        log_message "INFO" "DETECTED LOCAL INSTALLATION FILE: ${archive_path}"
+        log_message "INFO" "PROCEEDING WITH ROBUST (OFFLINE) INSTALLATION..."
+        
+        log_message "INFO" "CLEANING UP PREVIOUS INSTALLATIONS..."
+        systemctl stop x-ui &>/dev/null
+        rm -rf /usr/local/x-ui /etc/systemd/system/x-ui.service /usr/bin/x-ui /root/x-ui
+        
+        log_message "INFO" "EXTRACTING PANEL FILES TO /root/..."
+        if tar zxvf "$archive_path" -C /root/; then
+            if [ ! -d "/root/x-ui" ]; then
+                log_message "ERROR" "COULD NOT FIND /root/x-ui DIRECTORY AFTER EXTRACTION."
+            else
+                log_message "INFO" "ENTERING /root/x-ui AND RUNNING THE PANEL'S OWN INSTALLER..."
+                cd /root/x-ui
+                if ./x-ui.sh install; then
+                    log_message "SUCCESS" "3X-UI PANEL INSTALLED SUCCESSFULLY FROM LOCAL FILE."
+                    install_success=true
+                else
+                    log_message "ERROR" "THE PANEL'S OWN INSTALLER SCRIPT FAILED."
+                fi
+                cd /root/ # Return to a known directory
+            fi
+        else
+            log_message "ERROR" "FAILED TO EXTRACT THE ARCHIVE."
+        fi
+
+    else
+        # --- Automatic/Online Installation ---
+        log_message "INFO" "LOCAL INSTALLATION FILE NOT FOUND."
+        log_message "INFO" "PROCEEDING WITH AUTOMATIC (ONLINE) INSTALLATION..."
+        if ! check_internet_connection; then
+            log_message "ERROR" "NO INTERNET CONNECTION. CANNOT PROCEED WITH ONLINE INSTALLATION."
+        else
+            if bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh); then
+                 log_message "SUCCESS" "3X-UI ONLINE INSTALLATION SCRIPT EXECUTED."
+                 install_success=true
+            else
+                 log_message "ERROR" "ONLINE INSTALLATION SCRIPT FAILED."
+            fi
+        fi
+    fi
+
+    if [[ "$install_success" == true ]]; then
+        check_service_status "x-ui"
+        echo -e "\n${B_GREEN}پنل با موفقیت نصب شد. منوی پنل برای تایید اجرا می‌شود...${C_RESET}"
+        echo -e "${C_YELLOW}پس از اتمام کار با پنل، از منوی آن خارج شوید تا به اسکریپت اصلی بازگردید.${C_RESET}"
+        sleep 2
+        x-ui
+    else
+        log_message "ERROR" "3X-UI PANEL INSTALLATION FAILED. PLEASE CHECK THE LOGS."
+    fi
+
+    read -n 1 -s -r -p $'\n'"${R}برای بازگشت به منوی اصلی، یک کلید را فشار دهید...${N}"
 }
 
 
@@ -1471,8 +1586,140 @@ fix_whatsapp_time() {
     timedatectl set-timezone Asia/Tehran
     log_message "SUCCESS" "TIMEZONE CHANGED TO ASIA/TEHRAN."
     echo -e "${GREEN}منطقه زمانی سرور با موفقیت به ASIA/TEHRAN تنظیم شد.${NC}"
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
+# ###########################################################################
+# --- NEW: Advanced Warp Scanner (Final Corrected Version) ---
+# ###########################################################################
+manage_advanced_warp_scanner() {
+    local SCANNER_DIR="/usr/local/bin"
+    local SCANNER_BIN="${SCANNER_DIR}/warp-scanner"
+    local SCANNER_XRAY="${SCANNER_DIR}/xray" # The scanner might place an xray core here
+    local SCANNER_REPO="bia-pain-bache/BPB-Warp-Scanner"
+
+    _install_warp_scanner() {
+        log_message "INFO" "STARTING WARP SCANNER INSTALLATION/UPDATE..."
+        
+        if ! command -v curl &>/dev/null || ! command -v wget &>/dev/null; then
+            log_message "ERROR" "CURL AND WGET ARE REQUIRED. PLEASE INSTALL THEM."
+            return 1
+        fi
+
+        local ARCH
+        ARCH=$(uname -m)
+        case "${ARCH}" in
+          "x86_64" | "amd64") ARCH="amd64" ;;
+          "aarch64" | "arm64") ARCH="arm64" ;;
+          *)
+            log_message "ERROR" "UNSUPPORTED ARCHITECTURE: ${ARCH}. ONLY AMD64 AND ARM64 ARE SUPPORTED BY THIS SCANNER."
+            return 1
+            ;;
+        esac
+
+        # Using the specific, working version link you provided
+        local DOWNLOAD_URL="https://github.com/${SCANNER_REPO}/releases/download/v1.1.1/BPB-Warp-Scanner-linux-${ARCH}.tar.gz"
+        local TEMP_FILE="/tmp/warp-scanner.tar.gz"
+        
+        log_message "INFO" "DOWNLOADING STABLE SCANNER VERSION FROM ${DOWNLOAD_URL}"
+        
+        # Robust download logic
+        if ! curl -L --fail --connect-timeout 20 -o "$TEMP_FILE" "$DOWNLOAD_URL"; then
+            log_message "WARN" "CURL FAILED. TRYING WGET AS A FALLBACK..."
+            rm -f "$TEMP_FILE"
+            if ! wget --timeout=20 -O "$TEMP_FILE" "$DOWNLOAD_URL"; then
+                log_message "ERROR" "DOWNLOAD FAILED WITH BOTH CURL AND WGET. PLEASE CHECK YOUR SERVER'S NETWORK."
+                rm -f "$TEMP_FILE"
+                return 1
+            fi
+        fi
+
+        if [ ! -s "$TEMP_FILE" ]; then
+            log_message "ERROR" "DOWNLOADED FILE IS EMPTY. ABORTING."
+            rm -f "$TEMP_FILE"
+            return 1
+        fi
+
+        log_message "SUCCESS" "DOWNLOAD COMPLETED. EXTRACTING..."
+        
+        # Extract using tar, targeting a specific directory
+        mkdir -p "/tmp/warp-scanner-extracted"
+        if ! tar -zxvf "$TEMP_FILE" -C "/tmp/warp-scanner-extracted"; then
+            log_message "ERROR" "FAILED TO EXTRACT THE .TAR.GZ ARCHIVE."
+            rm -rf "$TEMP_FILE" "/tmp/warp-scanner-extracted"
+            return 1
+        fi
+        
+        # The binary is directly inside after extraction
+        local extracted_bin="/tmp/warp-scanner-extracted/BPB-Warp-Scanner"
+        if [ ! -f "$extracted_bin" ]; then
+             log_message "ERROR" "SCANNER BINARY NOT FOUND IN THE ARCHIVE."
+             rm -rf "$TEMP_FILE" "/tmp/warp-scanner-extracted"
+             return 1
+        fi
+
+        # Move the binary to the final destination
+        mv "$extracted_bin" "$SCANNER_BIN"
+        chmod +x "$SCANNER_BIN"
+        
+        log_message "SUCCESS" "WARP SCANNER INSTALLED/UPDATED SUCCESSFULLY."
+        rm -rf "$TEMP_FILE" "/tmp/warp-scanner-extracted"
+        return 0
+    }
+
+    _uninstall_warp_scanner() {
+        printf "\n%b" "${C_RED}** هشدار ** این عملیات اسکنر و هسته XRAY آن را حذف می‌کند. آیا مطمئن هستید؟ (y/n): ${C_RESET}"
+        read -e -r confirm
+        if [[ ! "$confirm" =~ ^[yY]$ ]]; then
+            log_message "INFO" "UNINSTALLATION CANCELED."
+            return
+        fi
+        log_message "INFO" "UNINSTALLING WARP SCANNER AND ITS COMPONENTS..."
+        rm -f "$SCANNER_BIN" "$SCANNER_XRAY"
+        rm -f /root/result.csv /root/warp-v4.txt /root/warp-v6.txt &>/dev/null
+        log_message "SUCCESS" "WARP SCANNER UNINSTALLED."
+    }
+
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- اسکنر پیشرفته WARP ---${C_RESET}\n"
+        if [ -f "$SCANNER_BIN" ]; then
+            echo -e "وضعیت: ${G}نصب شده${N}"
+        else
+            echo -e "وضعیت: ${R}نصب نشده${N}"
+        fi
+        echo ""
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "نصب / به‌روزرسانی اسکنر"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "2" "اجرای اسکنر"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "حذف اسکنر"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "بازگشت به منوی امنیت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
+        read -e -r choice
+
+        case $choice in
+            1) 
+                _install_warp_scanner
+                ;;
+            2)
+                if [ -f "$SCANNER_BIN" ]; then
+                    clear
+                    log_message "INFO" "EXECUTING WARP SCANNER..."
+                    echo -e "${B_YELLOW}در حال اجرای اسکنر... برای بازگشت، از منوی خود اسکنر خارج شوید.${N}\n"
+                    "$SCANNER_BIN"
+                else
+                    log_message "WARN" "SCANNER IS NOT INSTALLED. PLEASE INSTALL IT FIRST."
+                fi
+                ;;
+            3)
+                _uninstall_warp_scanner
+                ;;
+            4) return ;;
+            *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
+        esac
+        read -n 1 -s -r -p $'\n'"${R}برای ادامه یک کلید را فشار دهید...${N}"
+    done
+}
+
 # ###########################################################################
 # --- Final Security Tools & Network Utilities ---
 # ###########################################################################
@@ -1485,7 +1732,7 @@ manage_firewall() {
             systemctl disable firewalld.service &>/dev/null
             systemctl mask firewalld.service &>/dev/null
             log_message "SUCCESS" "FIREWALLD SERVICE DISABLED AND MASKED SUCCESSFULLY."
-            echo -e "${GREEN}برای جلوگیری از مشکلات، سرویس متناقض firewalld به صورت خودکار حذف شد.${NC}"
+            echo -e "${GREEN}برای جلوگیری از مشکلات، سرویس متناقض firewalld به صورت خودکار حذف شد.${N}"
             sleep 2
         fi
         local conflict_service=""
@@ -1502,7 +1749,7 @@ manage_firewall() {
                 systemctl mask "${conflict_service}.service" &>/dev/null
                 rm -f /etc/iptables/rules.v4 /etc/iptables/rules.v6 &>/dev/null
                 log_message "SUCCESS" "SERVICE ${conflict_service} DISABLED AND MASKED SUCCESSFULLY."
-                echo -e "${GREEN}برای جلوگیری از مشکلات، سرویس متناقض ${conflict_service} به صورت خودکار حذف شد.${NC}"
+                echo -e "${GREEN}برای جلوگیری از مشکلات، سرویس متناقض ${conflict_service} به صورت خودکار حذف شد.${N}"
                 sleep 2
             fi
         fi
@@ -1522,7 +1769,8 @@ manage_firewall() {
         while true; do
             clear
             echo -e "${B_CYAN}--- مدیریت پینگ سرور (ICMP) ---${C_RESET}\n"
-            local ping_status_val=$(check_ping_status)
+            local ping_status_val
+            ping_status_val=$(check_ping_status)
             local ping_status_display
             if [[ "$ping_status_val" == "BLOCKED" ]]; then
                 ping_status_display="${R}غیرفعال (BLOCKED)${N}"
@@ -1576,7 +1824,7 @@ manage_firewall() {
         log_message "WARN" "UFW IS NOT INSTALLED. ATTEMPTING TO INSTALL AUTOMATICALLY..."
         if ! install_dependencies; then
             log_message "ERROR" "AUTOMATIC INSTALLATION OF UFW FAILED. PLEASE INSTALL IT MANUALLY."
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
             return
         fi
         sleep 1
@@ -1609,7 +1857,8 @@ manage_firewall() {
         case $choice in
             1)
                 log_message "INFO" "ENABLING FIREWALL..."
-                local ssh_port=$(ss -lntp | grep sshd | awk '{print $4}' | sed 's/.*://' | head -n 1)
+                local ssh_port
+                ssh_port=$(ss -lntp | grep sshd | awk '{print $4}' | sed 's/.*://' | head -n 1)
                 if [[ -n "$ssh_port" ]]; then
                     echo -e "${Y}پورت SSH شما (${ssh_port}) شناسایی شد و به صورت خودکار باز شد.${N}"
                     ufw allow "$ssh_port/tcp" >/dev/null 2>&1
@@ -1621,19 +1870,19 @@ manage_firewall() {
                 echo "y" | ufw enable
                 systemctl enable ufw.service >/dev/null 2>&1
                 log_message "SUCCESS" "UFW FIREWALL ENABLED AND SECURED WITH DEFAULT RULES."
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             2)
                 log_message "INFO" "DISABLING FIREWALL..."
                 ufw disable
                 log_message "SUCCESS" "UFW FIREWALL DISABLED."
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             3)
                 clear
                 echo -e "${B_CYAN}--- وضعیت و قوانین فعلی فایروال ---${C_RESET}\n"
                 ufw status verbose
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             4) 
                 printf "%b" "${B_MAGENTA}لطفاً شماره پورت را وارد کنید (مثال: 443 یا 8000:9000): ${C_RESET}"
@@ -1644,7 +1893,7 @@ manage_firewall() {
                 else
                     log_message "WARN" "INVALID INPUT."
                 fi
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             5) 
                 clear
@@ -1658,12 +1907,13 @@ manage_firewall() {
                 else
                     log_message "WARN" "INVALID RULE NUMBER."
                 fi
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             6) 
                 clear
                 echo -e "${B_CYAN}--- افزودن خودکار پورت های در حال استفاده ---${C_RESET}\n"
-                local ssh_port=$(ss -lntp | grep sshd | awk '{print $4}' | sed 's/.*://' | head -n 1)
+                local ssh_port
+                ssh_port=$(ss -lntp | grep sshd | awk '{print $4}' | sed 's/.*://' | head -n 1)
                 mapfile -t listening_ports < <(ss -lntu | grep 'LISTEN' | awk '{print $5}' | sed 's/.*://' | sort -un)
                 mapfile -t all_ports_to_allow < <(printf "%s\n" "${listening_ports[@]}" "$ssh_port" | sort -un)
                 if [ ${#all_ports_to_allow[@]} -eq 0 ]; then
@@ -1683,7 +1933,7 @@ manage_firewall() {
                     log_message "SUCCESS" "ALL ACTIVE LISTENING PORTS HAVE BEEN ALLOWED IN THE FIREWALL."
                     ufw reload >/dev/null
                 fi
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             7)
                 _manage_ping_submenu
@@ -1698,7 +1948,13 @@ manage_firewall() {
     done
 }
 manage_abuse_defender() {
-    # List of IPs to block are embedded directly into the script
+    if ! ufw status | grep -q "Status: active"; then
+        log_message "WARN" "UFW (FIREWALL) IS NOT ACTIVE. PLEASE ENABLE IT FIRST FROM THE FIREWALL MENU."
+        echo -e "\n${C_RED}خطا: فایروال UFW فعال نیست. لطفاً ابتدا از منوی 'مدیریت فایروال' آن را فعال کنید.${N}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+        return
+    fi
+    
     local ABUSE_IPS=(
         "185.105.237.0/24" "172.93.52.0/24" "5.2.72.0/24" "5.2.78.0/24" "5.2.82.0/24"
         "5.2.83.0/24" "5.2.86.0/24" "5.2.87.0/24" "46.224.0.0/16" "79.175.128.0/17"
@@ -1706,15 +1962,16 @@ manage_abuse_defender() {
         "185.5.96.0/22" "185.13.36.0/22" "185.88.152.0/22" "188.94.152.0/21" "213.108.224.0/20"
         "217.218.0.0/15"
     )
+    local COMMENT_TAG="IRNET-ABUSE-DEFENDER"
 
     while true; do
         clear
-        echo -e "${B_CYAN}--- مدیریت فایروال ABUSE ---${C_RESET}\n"
+        echo -e "${B_CYAN}--- مدیریت فایروال ABUSE (مبتنی بر UFW) ---${C_RESET}\n"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "مسدودسازی رنج آی‌پی‌های ABUSE"
         printf "  ${C_YELLOW}%2d)${C_GREEN} %s\n" "2" "افزودن آی‌پی به لیست سفید (WHITELIST)"
         printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "مسدودسازی دستی یک آی‌پی"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "مشاهده قوانین فایروال (INPUT CHAIN)"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "پاک کردن قوانین ABUSE (رفع مسدودی)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "مشاهده قوانین فایروال (UFW)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "پاک کردن تمام قوانین ABUSE (رفع مسدودی)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "6" "بازگشت به منوی امنیت"
         echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
@@ -1722,24 +1979,26 @@ manage_abuse_defender() {
 
         case $choice in
             1) # Block Abuse IP-Ranges
-                log_message "INFO" "BLOCKING ABUSE IP RANGES..."
+                log_message "INFO" "BLOCKING ABUSE IP RANGES VIA UFW..."
                 local add_count=0
                 for ip in "${ABUSE_IPS[@]}"; do
-                    if ! iptables -C INPUT -s "$ip" -j DROP &>/dev/null; then
-                        iptables -A INPUT -s "$ip" -j DROP
+                    if ! ufw status | grep -qw "$ip"; then
+                        ufw deny from "$ip" to any comment "$COMMENT_TAG" >/dev/null
                         ((add_count++))
                     fi
                 done
-                log_message "SUCCESS" "$add_count NEW RULES ADDED. ABUSE IPS BLOCKED."
-                echo -e "\n${G}عملیات مسدودسازی با موفقیت انجام شد. $add_count قانون جدید اضافه شد.${N}"
+                log_message "SUCCESS" "$add_count NEW UFW RULES ADDED. ABUSE IPS BLOCKED."
+                echo -e "\n${G}عملیات مسدودسازی با موفقیت انجام شد. $add_count قانون جدید به UFW اضافه شد.${N}"
+                ufw reload >/dev/null
                 ;;
             2) # Whitelist an IP/IP-Ranges manually
                 printf "\n%b" "${B_MAGENTA}آی‌پی یا رنج مورد نظر برای افزودن به لیست سفید را وارد کنید: ${C_RESET}"
                 read -e -r ip_to_whitelist
                 if [[ -n "$ip_to_whitelist" ]]; then
-                    iptables -I INPUT 1 -s "$ip_to_whitelist" -j ACCEPT
-                    log_message "SUCCESS" "IP $ip_to_whitelist WHITELISTED."
-                    echo -e "\n${G}آی‌پی $ip_to_whitelist به لیست سفید (WHITELIST) اضافه شد.${N}"
+                    ufw allow from "$ip_to_whitelist" to any comment "${COMMENT_TAG}-WHITELIST"
+                    log_message "SUCCESS" "IP $ip_to_whitelist WHITELISTED IN UFW."
+                    echo -e "\n${G}آی‌پی $ip_to_whitelist به لیست سفید (WHITELIST) فایروال اضافه شد.${N}"
+                    ufw reload >/dev/null
                 else
                     log_message "WARN" "NO IP PROVIDED."
                 fi
@@ -1748,30 +2007,37 @@ manage_abuse_defender() {
                 printf "\n%b" "${B_MAGENTA}آی‌پی یا رنج مورد نظر برای مسدودسازی دستی را وارد کنید: ${C_RESET}"
                 read -e -r ip_to_block
                 if [[ -n "$ip_to_block" ]]; then
-                    iptables -A INPUT -s "$ip_to_block" -j DROP
-                    log_message "SUCCESS" "IP $ip_to_block BLOCKED."
-                    echo -e "\n${G}آی‌پی $ip_to_block به صورت دستی مسدود شد.${N}"
+                    ufw deny from "$ip_to_block" to any comment "${COMMENT_TAG}-MANUAL"
+                    log_message "SUCCESS" "IP $ip_to_block BLOCKED IN UFW."
+                    echo -e "\n${G}آی‌پی $ip_to_block به صورت دستی در فایروال مسدود شد.${N}"
+                    ufw reload >/dev/null
                 else
                     log_message "WARN" "NO IP PROVIDED."
                 fi
                 ;;
             4) # View Rules
                 clear
-                echo -e "${B_CYAN}--- لیست قوانین فعلی در زنجیره INPUT فایروال ---${C_RESET}\n"
-                iptables -L INPUT -n --line-numbers
-                echo -e "\n${C_YELLOW}این لیست شامل تمام قوانینی است که بر ترافیک ورودی اعمال می‌شود.${N}"
+                echo -e "${B_CYAN}--- لیست قوانین فعلی فایروال (UFW) ---${C_RESET}\n"
+                ufw status numbered
+                echo -e "\n${C_YELLOW}قوانین اضافه شده توسط این اسکریپت دارای کامنت '${COMMENT_TAG}' هستند.${N}"
                 ;;
             5) # Clear all rules (Unblock Abuse IPs)
-                log_message "INFO" "UNBLOCKING ABUSE IP RANGES..."
-                local remove_count=0
-                for ip in "${ABUSE_IPS[@]}"; do
-                    while iptables -D INPUT -s "$ip" -j DROP &>/dev/null; do
-                        ((remove_count++))
+                log_message "INFO" "REMOVING ALL ABUSE DEFENDER RULES FROM UFW..."
+                local rules_to_delete
+                mapfile -t rules_to_delete < <(ufw status numbered | grep "$COMMENT_TAG" | awk -F'[][]' '{print $2}' | sort -rn)
+                
+                if [ ${#rules_to_delete[@]} -eq 0 ]; then
+                    log_message "INFO" "NO ABUSE DEFENDER RULES FOUND TO DELETE."
+                    echo -e "\n${Y}هیچ قانونی برای حذف یافت نشد.${N}"
+                else
+                    echo -e "${C_YELLOW}در حال حذف ${#rules_to_delete[@]} قانون...${N}"
+                    for rule_num in "${rules_to_delete[@]}"; do
+                        yes | ufw delete "$rule_num" >/dev/null
                     done
-                done
-                log_message "SUCCESS" "$remove_count ABUSE RULES REMOVED."
-                echo -e "\n${G}قوانین مسدودسازی مربوط به لیست ABUSE با موفقیت حذف شدند. ($remove_count قانون حذف شد).${N}"
-                echo -e "${C_YELLOW}توجه: این گزینه فقط قوانینی که توسط گزینه ۱ اضافه شده‌اند را پاک می‌کند.${N}"
+                    log_message "SUCCESS" "${#rules_to_delete[@]} ABUSE RULES REMOVED FROM UFW."
+                    echo -e "\n${G}تمام قوانین مسدودسازی مربوط به لیست ABUSE با موفقیت حذف شدند.${N}"
+                    ufw reload >/dev/null
+                fi
                 ;;
             6) # Exit
                 return
@@ -1781,10 +2047,9 @@ manage_abuse_defender() {
                 continue
                 ;;
         esac
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
     done
 }
-
 manage_xui_assistant() {
     local ASSISTANT_DIR="/root/xui-assistant"
     # The real executable is menu.sh
@@ -1908,7 +2173,7 @@ manage_xui_assistant() {
                 continue
                 ;;
         esac
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
     done
 }
 
@@ -1952,20 +2217,20 @@ tc qdisc show dev $INTERFACE | grep -E 'cake|fq_codel|htb|netem'
 echo -e "\033[38;5;208mIRNET\033[0m"
 EOF
       chmod +x "$SCRIPT_PATH"
-      (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH"; echo "@reboot sleep 30 && $SCRIPT_PATH") | crontab -
+      (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH"; echo "@reboot sleep 30 && \"$SCRIPT_PATH\"") | crontab -
       log_message "SUCCESS" "TC OPTIMIZATION SCRIPT INSTALLED SUCCESSFULLY."
       echo -e "\n${C_YELLOW}--- اجرای خودکار تست برای تایید نصب ---${C_RESET}"
       bash "$SCRIPT_PATH" && echo "تست موفق بود." && tail -5 /var/log/tc_smart.log
       ;;
     2)
       rm -f "$SCRIPT_PATH"
-      crontab -l | grep -v "$SCRIPT_PATH" | crontab -
+      (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" | crontab -)
       log_message "SUCCESS" "TC OPTIMIZATION SCRIPT AND ITS CRON JOB REMOVED."
       ;;
     3) return ;;
     *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
   esac
-  read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+  read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_custom_sysctl() {
@@ -2023,7 +2288,7 @@ net.core.default_qdisc=fq_codel
 EOF
                 sysctl -p "$conf_file"
                 log_message "SUCCESS" "CUSTOM SYSCTL SETTINGS APPLIED SUCCESSFULLY."
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             2)
                 if [ -f "$conf_file" ]; then
@@ -2033,7 +2298,7 @@ EOF
                 else
                     log_message "INFO" "CUSTOM SETTINGS FILE NOT FOUND."
                 fi
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             3) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
@@ -2043,7 +2308,7 @@ EOF
 manage_tc_qleen_mtu() {
     if [[ -z "$PRIMARY_INTERFACE" ]]; then
         log_message "ERROR" "PRIMARY NETWORK INTERFACE NOT FOUND."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
     
@@ -2097,7 +2362,7 @@ Wants=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c "source $TC_CONFIG_FILE && tc qdisc del dev \\\$INTERFACE root 2>/dev/null; if [ \\\"\\\$TC_PROFILE\\\" = \\\"CAKE\\\" ]; then tc qdisc add dev \\\$INTERFACE root cake; ip link set dev \\\$INTERFACE txqueuelen 500; ip link set dev \\\$INTERFACE mtu 1380; elif [ \\\"\\\$TC_PROFILE\\\" = \\\"FQ_CODEL\\\" ]; then tc qdisc add dev \\\$INTERFACE root fq_codel; ip link set dev \\\$INTERFACE txqueuelen 1500; ip link set dev \\\$INTERFACE mtu 1380; fi"
+ExecStart=/bin/bash -c "source \"$TC_CONFIG_FILE\" && tc qdisc del dev \\\$INTERFACE root 2>/dev/null; if [ \\\"\\\$TC_PROFILE\\\" = \\\"CAKE\\\" ]; then tc qdisc add dev \\\$INTERFACE root cake; ip link set dev \\\$INTERFACE txqueuelen 500; ip link set dev \\\$INTERFACE mtu 1380; elif [ \\\"\\\$TC_PROFILE\\\" = \\\"FQ_CODEL\\\" ]; then tc qdisc add dev \\\$INTERFACE root fq_codel; ip link set dev \\\$INTERFACE txqueuelen 1500; ip link set dev \\\$INTERFACE mtu 1380; fi"
 
 [Install]
 WantedBy=multi-user.target
@@ -2106,7 +2371,7 @@ EOF
                 systemctl enable --now irnet-tc-persistent.service
                 check_service_status "irnet-tc-persistent.service"
 
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             3)
                 log_message "INFO" "REMOVING TC QDISC FROM $PRIMARY_INTERFACE..."
@@ -2119,7 +2384,7 @@ EOF
                 systemctl daemon-reload
 
                 log_message "SUCCESS" "TC SETTINGS AND ITS PERSISTENT SERVICE REMOVED."
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             4) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
@@ -2132,7 +2397,7 @@ run_packet_loss_test() {
     echo -e "${B_CYAN}--- تست پکت لاست، پینگ و مسیر شبکه (MTR) ---${C_RESET}\n"
     if ! command -v mtr &> /dev/null || ! command -v jq &> /dev/null; then
         log_message "ERROR" "MTR AND JQ TOOLS ARE REQUIRED FOR THIS TEST. PLEASE INSTALL THEM."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
 
@@ -2153,7 +2418,7 @@ run_packet_loss_test() {
 
     if ! echo "$MTR_JSON" | jq . > /dev/null 2>&1; then
         log_message "ERROR" "PARSING FAILED. MTR DID NOT PRODUCE VALID OUTPUT. PLEASE CHECK YOUR INTERNET CONNECTION."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
 
@@ -2206,7 +2471,7 @@ run_packet_loss_test() {
         echo -e "   پکت لاست 0% و پینگ مناسب است. این سرور برای تونل زدن کیفیت خوبی دارد."
     fi
 
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 advanced_mirror_test() {
     clear
@@ -2283,8 +2548,10 @@ EOF
             return
         fi
         local selected_mirror_info="${MIRROR_LIST_CACHE[$((rank_choice - 1))]}"
-        local selected_mirror_url=$(echo "$selected_mirror_info" | cut -d'|' -f2)
-        local selected_mirror_name=$(echo "$selected_mirror_info" | cut -d'|' -f3)
+        local selected_mirror_url
+        selected_mirror_url=$(echo "$selected_mirror_info" | cut -d'|' -f2)
+        local selected_mirror_name
+        selected_mirror_name=$(echo "$selected_mirror_info" | cut -d'|' -f3)
         apply_selected_mirror "$selected_mirror_url" "$selected_mirror_name"
     }
 
@@ -2358,7 +2625,7 @@ EOF
         3) return ;;
         *) echo -e "${R}گزینه نامعتبر است!${N}" ;;
     esac
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 port_scanner_menu() {
@@ -2397,7 +2664,7 @@ port_scanner_menu() {
             3) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
         esac
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
     done
 }
 show_current_dns_smart() {
@@ -2461,7 +2728,7 @@ manage_sanction_dns() {
     
     log_message "INFO" "OPERATION COMPLETED. CHECKING NEW DNS SETTINGS..."
     sleep 2; clear; show_current_dns_smart
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_ip_health_check() {
@@ -2484,7 +2751,7 @@ manage_ip_health_check() {
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_ssh_port() {
@@ -2521,7 +2788,7 @@ manage_ssh_port() {
         echo -e "\n${B_YELLOW}**مهم:** لطفاً اتصال SSH خود را با پورت جدید (${new_port}) تست کنید.${C_RESET}"
     fi
     
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_xray_auto_restart() {
@@ -2539,7 +2806,7 @@ manage_xray_auto_restart() {
 
     if [ -z "$xray_service" ]; then
         log_message "ERROR" "NO KNOWN XRAY OR PANEL SERVICE WAS FOUND ON YOUR SERVER."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
     
@@ -2562,13 +2829,13 @@ manage_xray_auto_restart() {
             log_message "SUCCESS" "AUTOMATIC RESTART FOR ${xray_service} SET TO EVERY 30 MINUTES."
             ;;
         3)
-            crontab -l | grep -v "systemctl restart ${xray_service}" | crontab -
+            (crontab -l 2>/dev/null | grep -v "systemctl restart ${xray_service}" | crontab -)
             log_message "SUCCESS" "AUTOMATIC RESTART FOR ${xray_service} REMOVED."
             ;;
         4) return ;;
         *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}" ;;
     esac
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 scan_arvan_ranges() {
@@ -2577,7 +2844,7 @@ scan_arvan_ranges() {
     if ! command -v fping &>/dev/null; then
         log_message "ERROR" "FPING TOOL IS REQUIRED FOR THIS SCAN. ATTEMPTING TO INSTALL..."
         if ! install_dependencies; then
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"; return
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"; return
         fi
     fi
 
@@ -2622,7 +2889,7 @@ scan_arvan_ranges() {
         echo -e "${B_BLUE}-------------------------------------------------${N}"
     done
     log_message "SUCCESS" "SCAN OF ALL ARVAN RANGES COMPLETED."
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 scan_warp_endpoints() {
@@ -2631,7 +2898,7 @@ scan_warp_endpoints() {
     if ! command -v ncat &>/dev/null; then
         log_message "WARN" "NCAT TOOL (PART OF NMAP) NOT FOUND. ATTEMPTING TO INSTALL..."
         if ! install_dependencies; then
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"; return
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"; return
         fi
     fi
     
@@ -2685,7 +2952,7 @@ scan_warp_endpoints() {
     done
     
     log_message "SUCCESS" "WARP ENDPOINT SCAN COMPLETED."
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 # --- SCRIPT MAIN MENUS (UPDATED) ---
 
@@ -2733,10 +3000,11 @@ manage_security() {
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "8" "مدیریت ریبوت خودکار سرور"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "9" "فعال/غیرفعال کردن IPV6"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "10" "اسکنر پورت"
-        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "11" "اسکن رنج آروان کلود"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "12" "تشخیص سالم بودن آی پی"
-        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "13" "اسکن اندپوینت های WARP"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "14" "بازگشت به منوی اصلی"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "11" "اسکن رنج وارپ پیشرفته"
+        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "12" "اسکن رنج آروان کلود"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "13" "تشخیص سالم بودن آی پی"
+        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "14" "اسکن اندپوینت های WARP"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "15" "بازگشت به منوی اصلی"
         echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
 
@@ -2744,7 +3012,8 @@ manage_security() {
             1) manage_firewall ;; 2) manage_ssh_root ;; 3) manage_ssh_port ;; 4) change_server_password ;;
             5) manage_abuse_defender ;; 6) manage_xui_assistant ;; 7) manage_xray_auto_restart ;; 
             8) manage_reboot_cron ;; 9) manage_ipv6 ;; 10) port_scanner_menu ;;
-            11) scan_arvan_ranges ;; 12) manage_ip_health_check ;; 13) scan_warp_endpoints ;; 14) return ;;
+            11) manage_advanced_warp_scanner ;; 12) scan_arvan_ranges ;; 13) manage_ip_health_check ;; 
+            14) scan_warp_endpoints ;; 15) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
@@ -2757,7 +3026,7 @@ update_and_install_packages() {
     echo -e "${B_YELLOW}مرحله ۱: به‌روزرسانی لیست بسته‌های سیستم عامل...${N}"
     if ! apt-get update -qq; then
         log_message "ERROR" "FAILED TO UPDATE PACKAGE LISTS. PLEASE CHECK YOUR INTERNET CONNECTION."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return 1
     fi
     log_message "SUCCESS" "PACKAGE LISTS UPDATED SUCCESSFULLY."
@@ -2776,7 +3045,7 @@ update_and_install_packages() {
     fi
     
     echo -e "\n${B_GREEN}✅ فرآیند آپدیت و نصب بسته‌ها با موفقیت به پایان رسید.${N}"
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 
@@ -2793,7 +3062,8 @@ main() {
       printf "   ${C_YELLOW}%2d) ${B_CYAN}%s\n" "2" "امنیت و دسترسی"
       printf "   ${C_YELLOW}%2d) ${C_WHITE}%s\n" "3" "آپدیت و نصب پکیج های لازم"
       printf "   ${C_YELLOW}%2d)${B_GREEN} %s\n" "4" "نصب / به‌روزرسانی پنل TX-UI"
-      printf "\n   ${C_YELLOW}%2d) ${C_RED}%s\n" "5" "خروج (EXIT)"
+      printf "   ${C_YELLOW}%2d)${B_GREEN} %s\n" "5" "نصب / به‌روزرسانی پنل 3X-UI"
+      printf "\n   ${C_YELLOW}%2d) ${C_RED}%s\n" "6" "خروج (EXIT)"
       echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
       printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
       read -e -r main_choice
@@ -2803,7 +3073,8 @@ main() {
         2) manage_security ;;
         3) update_and_install_packages ;;
         4) manage_txui_panel ;;
-        5) clear; log_message "INFO" "EXITING SCRIPT."; echo -e "\n${B_CYAN}خدا نگهدار!${C_RESET}\n"; stty sane; exit 0 ;;
+        5) manage_3xui_panel ;;
+        6) clear; log_message "INFO" "EXITING SCRIPT."; echo -e "\n${B_CYAN}خدا نگهدار!${C_RESET}\n"; stty sane; exit 0 ;;
         *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; read -n 1 -s -r -p "" ;;
       esac
     done
