@@ -78,7 +78,8 @@ bash <(curl -sL "https://raw.githubusercontent.com/cy33r/IR-NET/main/MENU-EN.sh?
 #### 🚀 UPDATE & INSTALL PACKAGES
 
 #### ⚙️ INSTALL / UPDATE TX-UI PANEL SMART
-* GUIDE
+
+#### ⚙️ INSTALL / UPDATE 3X-UI PANEL SMART
 
 ---
 ## 🤝 CONTRIBUTION AND AUTHORS
