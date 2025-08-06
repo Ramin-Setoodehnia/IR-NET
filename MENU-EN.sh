@@ -2,7 +2,7 @@
 
 # Check for root user
 if [ "$(id -u)" -ne 0 ]; then
-  echo "THIS SCRIPT MUST BE RUN WITH ROOT PRIVILEGES."
+  echo "THIS SCRIPT MUST BE RUN WITH ROOT ACCESS."
   echo "PLEASE USE THE COMMAND 'sudo bash MENU-EN.sh'."
   exit 1
 fi
@@ -97,7 +97,7 @@ restore_backup() {
 }
 
 check_service_status() {
-    local service_name=$1
+    local service_name="$1"
     if systemctl is-active --quiet "$service_name"; then
         log_message "SUCCESS" "SERVICE $service_name IS ACTIVE AND RUNNING."
     else
@@ -139,7 +139,7 @@ init_environment() {
 # #############################################################################
 # --- HEADER AND BANNER ---
 show_banner() {
-    echo -e "${B_BLUE}║${B_CYAN}  COMPREHENSIVE UBUNTU LINUX OPTIMIZATION SUITE${B_BLUE}     ${C_RESET}"
+    echo -e "${B_BLUE}║${B_CYAN}  COMPREHENSIVE LINUX UBUNTU OPTIMIZATION SUITE${B_BLUE}     ${C_RESET}"
     echo -e "${B_BLUE}╠══════════════════════════════════════════════════════════════╣${C_RESET}"
     echo -e "${B_BLUE}║ ${C_WHITE}CREATED BY: AMIR ALI KARBALAEE${B_BLUE}   |   ${C_WHITE}TELEGRAM: T.ME/CY3ER${B_BLUE}      ║${C_RESET}"
     echo -e "${B_BLUE}║ ${C_WHITE}COLLABORATOR: FREAK${B_BLUE}              |   ${C_WHITE}TELEGRAM: T.ME/FREAK_4L${B_BLUE}   ║${C_RESET}"
@@ -147,6 +147,7 @@ show_banner() {
     echo -e "${B_BLUE}╚══════════════════════════════════════════════════════════════╝${C_RESET}"
     echo ""
 }
+
 # --- HELPER FUNCTIONS ---
 progress_bar() {
     local msg="$1"
@@ -199,14 +200,13 @@ check_ping_status() {
 }
 
 is_valid_ip() {
-    local ip=$1
+    local ip="$1"
     if [[ "$ip" =~ ^([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$ || "$ip" =~ ^(([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])) || "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
         return 0
     else
         return 1
     fi
 }
-
 # --- SYSTEM STATUS ---
 # [+] REVISED TO FIX DISPLAY AND DETECTION ISSUES
 show_enhanced_system_status() {
@@ -229,9 +229,12 @@ show_enhanced_system_status() {
     # Wait for all background jobs to complete
     wait
     
-    local public_ipv4=$(cat "$TMP_IPV4")
-    local public_ipv6=$(cat "$TMP_IPV6")
-    local provider=$(cat "$TMP_ISP")
+    local public_ipv4
+    public_ipv4=$(cat "$TMP_IPV4")
+    local public_ipv6
+    public_ipv6=$(cat "$TMP_IPV6")
+    local provider
+    provider=$(cat "$TMP_ISP")
     
     # Clean up temporary files
     rm -f "$TMP_IPV4" "$TMP_IPV6" "$TMP_ISP"
@@ -252,17 +255,28 @@ show_enhanced_system_status() {
 
 
     # Use a wider cut for CPU model to prevent awkward wrapping
-    local cpu_model=$(grep "model name" /proc/cpuinfo | head -1 | cut -d':' -f2 | sed 's/^ *//' | cut -c1-45)
-    local cpu_cores=$(nproc)
-    local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1 2>/dev/null || echo "N/A")
-    local mem_total=$(free -h | grep "Mem:" | awk '{print $2}')
-    local mem_used=$(free -h | grep "Mem:" | awk '{print $3}')
-    local mem_percent=$(free | grep "Mem:" | awk '{printf "%.0f", ($3/$2)*100.0}')
-    local load_avg=$(uptime | awk -F'load average:' '{print $2}' | sed 's/^ *//' | cut -d',' -f1)
-    local uptime_str=$(uptime -p 2>/dev/null | sed 's/up //')
-    local ipv6_status_val=$(check_ipv6_status)
-    local ping_status_val=$(check_ping_status)
-    local ubuntu_version=$(lsb_release -sr 2>/dev/null || echo 'N/A')
+    local cpu_model
+    cpu_model=$(grep "model name" /proc/cpuinfo | head -1 | cut -d':' -f2 | sed 's/^ *//' | cut -c1-45)
+    local cpu_cores
+    cpu_cores=$(nproc)
+    local cpu_usage
+    cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1 2>/dev/null || echo "N/A")
+    local mem_total
+    mem_total=$(free -h | grep "Mem:" | awk '{print $2}')
+    local mem_used
+    mem_used=$(free -h | grep "Mem:" | awk '{print $3}')
+    local mem_percent
+    mem_percent=$(free | grep "Mem:" | awk '{printf "%.0f", ($3/$2)*100.0}')
+    local load_avg
+    load_avg=$(uptime | awk -F'load average:' '{print $2}' | sed 's/^ *//' | cut -d',' -f1)
+    local uptime_str
+    uptime_str=$(uptime -p 2>/dev/null | sed 's/up //')
+    local ipv6_status_val
+    ipv6_status_val=$(check_ipv6_status)
+    local ping_status_val
+    ping_status_val=$(check_ping_status)
+    local ubuntu_version
+    ubuntu_version=$(lsb_release -sr 2>/dev/null || echo 'N/A')
     
     local current_mirror_uri
     if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
@@ -277,7 +291,8 @@ show_enhanced_system_status() {
         current_mirror_host="N/A"
     fi
 
-    local private_ips=$(ip -o addr show | awk '{print $4}' | cut -d/ -f1 | grep -E '(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)' | tr '\n' ' ' | xargs)
+    local private_ips
+    private_ips=$(ip -o addr show | awk '{print $4}' | cut -d/ -f1 | grep -E '(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)' | tr '\n' ' ' | xargs)
     [ -z "$private_ips" ] && private_ips="N/A"
     
     local dns_servers
@@ -322,7 +337,8 @@ show_enhanced_system_status() {
         (( ${#label} > max_label_len )) && max_label_len=${#label}
     done
     
-    local terminal_width=$(tput cols 2>/dev/null || echo 80)
+    local terminal_width
+    terminal_width=$(tput cols 2>/dev/null || echo 80)
     local max_value_width=$(( terminal_width - max_label_len - 7 ))
     [[ $max_value_width -lt 20 ]] && max_value_width=20
 
@@ -330,23 +346,26 @@ show_enhanced_system_status() {
     for i in "${!labels[@]}"; do
         local label="${labels[$i]}"
         local value="${values[$i]}"
-        local clean_value=$(echo -e "$value" | sed 's/\x1b\[[0-9;]*m//g')
+        local clean_value
+        clean_value=$(echo -e "$value" | sed 's/\x1b\[[0-9;]*m//g')
         
         if (( ${#clean_value} > max_value_width )); then
+            local value_part
             value_part=$(echo -e "${value}" | cut -c 1-$((max_value_width - 3)))
             value="${value_part}...${N}"
         fi
         
-        local visual_value_len=$(get_visual_length "$value")
+        local visual_value_len
+        visual_value_len=$(get_visual_length "$value")
         
         printf "${B_BLUE}║${C_WHITE} %s" "$label"
-        printf "%*s" $((max_label_len - ${#label})) ""
+        printf "%*s" "$((max_label_len - ${#label}))" ""
         
         printf " ${B_BLUE}│${C_CYAN} %s" "$value"
 
         local padding=$(( max_value_width - visual_value_len ))
         [[ $padding -lt 0 ]] && padding=0
-        printf "%*s" $padding ""
+        printf "%*s" "$padding" ""
         
         printf " ${B_BLUE}║\n"
     done
@@ -478,7 +497,7 @@ install_dependencies() {
         return 1
     fi
 
-    local deps=("curl" "wget" "socat" "ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq" "bc" "lsb-release" "netcat-openbsd" "nmap" "fping" "uuid-runtime" "iptables-persistent" "python3" "python3-pip" "fail2ban" "chkrootkit")
+    local deps=("curl" "wget" "socat" "ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq" "bc" "lsb-release" "netcat-openbsd" "nmap" "fping" "uuid-runtime" "iptables-persistent" "python3" "python3-pip" "fail2ban" "chkrootkit" "unzip")
     local missing_deps=()
     
     for dep in "${deps[@]}"; do
@@ -557,7 +576,6 @@ fix_etc_hosts() {
     fi
     return 0
 }
-
 # [+] FIXED DNS APPLICATION LOGIC
 apply_dns_persistent() {
     local dns1="$1"
@@ -831,7 +849,7 @@ Wants=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c "source $CONFIG_DIR/mtu.conf && /sbin/ip link set dev \\\$INTERFACE mtu \\\$OPTIMAL_MTU"
+ExecStart=/bin/bash -c "source \"$CONFIG_DIR/mtu.conf\" && /sbin/ip link set dev \\\$INTERFACE mtu \\\$OPTIMAL_MTU"
 
 [Install]
 WantedBy=multi-user.target
@@ -992,25 +1010,25 @@ intelligent_optimize() {
     return 0
 }
 
-show_as_bbr_menu() {
+show_advanced_optimization_menu() {
     while true; do
         clear
-        echo -e "${B_CYAN}--- NETWORK SUBSTRATE OPTIMIZATION MENU ---${C_RESET}\n"
+        echo -e "${B_CYAN}--- ADVANCED NETWORK OPTIMIZATION MENU ---${C_RESET}\n"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "APPLY INTELLIGENT OPTIMIZATION (RECOMMENDED)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "RESTORE TO DEFAULT SETTINGS"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "RETURN TO MAIN MENU"
-        echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+        echo -e "${B_BLUE}------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION (1-3): ${C_RESET}"
         read -e -r choice
 
         case "$choice" in
             1)
                 intelligent_optimize
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             2)
                 restore_defaults
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             3)
                 log_message "INFO" "RETURNING TO THE MAIN MENU."
@@ -1024,17 +1042,17 @@ show_as_bbr_menu() {
     done
 }
 
-run_as_bbr_optimization() {
+run_advanced_optimization() {
     init_environment
-    show_as_bbr_menu
+    show_advanced_optimization_menu
 }
 manage_dns() {
     clear
     if ! command -v fping &>/dev/null; then
-        log_message "WARN" "FPING TOOL NOT FOUND. ATTEMPTING TO INSTALL AUTOMATICALLY..."
+        log_message "WARN" "'FPING' TOOL NOT FOUND. ATTEMPTING TO INSTALL AUTOMATICALLY..."
         if ! install_dependencies; then
             log_message "ERROR" "AUTOMATIC INSTALLATION OF 'FPING' FAILED."
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
             return
         fi
         log_message "SUCCESS" "'FPING' TOOL INSTALLED SUCCESSFULLY. CONTINUING..."
@@ -1054,7 +1072,7 @@ manage_dns() {
     
     find_and_set_best_dns() {
         local -n dns_list=$1
-        local list_name=$2
+        local list_name="$2"
         echo -e "\n${B_CYAN}TESTING PING FROM ${list_name} DNS LIST WITH FPING...${C_RESET}"
         
         local fping_results
@@ -1069,7 +1087,7 @@ manage_dns() {
                 ip=$(echo "$line" | awk '{print $1}')
                 avg_ping=$(echo "$line" | awk '{s=0; for(i=3;i<=NF;i++) s+=$i; print s/(NF-2)}' | bc -l)
                 
-                all_results+=("PING ${C_YELLOW}${ip}${C_RESET}: ${G}$(printf "%.2f" $avg_ping) MS${N}")
+                all_results+=("PING ${C_YELLOW}${ip}${C_RESET}: ${G}$(printf "%.2f" $avg_ping) ms${N}")
                 reachable_dns+=("$(printf "%.2f" $avg_ping) $ip")
             fi
         done <<< "$fping_results"
@@ -1099,9 +1117,9 @@ manage_dns() {
 
     while true; do
         clear
-        echo -e "${B_CYAN}--- MANAGE AND FIND BEST DNS ---${C_RESET}\n"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "FIND AND SET BEST IRANIAN DNS"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "FIND AND SET BEST GLOBAL DNS"
+        echo -e "${B_CYAN}--- MANAGE & FIND BEST DNS ---${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "FIND & SET BEST IRANIAN DNS"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "FIND & SET BEST GLOBAL DNS"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "VIEW ACTIVE SYSTEM DNS"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "RETURN TO OPTIMIZATION MENU"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
@@ -1109,14 +1127,14 @@ manage_dns() {
         read -e -r choice
 
         case $choice in
-            1) find_and_set_best_dns IRAN_DNS_LIST "IRANIAN"; break ;;
+            1) find_and_set_best_dns IRAN_DNS_LIST "IRAN"; break ;;
             2) find_and_set_best_dns GLOBAL_DNS_LIST "GLOBAL"; break ;;
             3) clear; echo -e "${B_CYAN}--- ACTIVE SYSTEM DNS STATUS ---${C_RESET}"; show_current_dns_smart; break ;;
             4) return ;;
             *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; sleep 1 ;;
         esac
     done
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_ipv6() {
@@ -1124,7 +1142,7 @@ manage_ipv6() {
     local sysctl_conf="/etc/sysctl.conf"
     echo -e "${B_CYAN}--- ENABLE/DISABLE IPV6 ---${C_RESET}\n"
     printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "DISABLE IPV6"
-    printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "ENABLE IPV6 (REMOVE SETTINGS)"
+    printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "ENABLE IPV6 (REMOVES DISABLE SETTINGS)"
     printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "RETURN TO SECURITY MENU"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
@@ -1132,7 +1150,7 @@ manage_ipv6() {
 
     case $choice in
         1)
-            printf "%b" "${C_YELLOW}**WARNING:** THIS ACTION MAY DISRUPT YOUR CONNECTION. ARE YOU SURE? (Y/N): ${C_RESET}"
+            printf "%b" "${C_YELLOW}**WARNING:** THIS ACTION MIGHT DISRUPT YOUR CONNECTION. ARE YOU SURE? (Y/N): ${C_RESET}"
             read -e -r confirm
             if [[ "$confirm" =~ ^[yY]$ ]]; then
                 create_backup "$sysctl_conf"
@@ -1165,7 +1183,7 @@ manage_ipv6() {
         3) return ;;
         *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}" ;;
     esac
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 manage_ssh_root() {
   clear
@@ -1187,7 +1205,7 @@ manage_ssh_root() {
       printf "%b" "${B_MAGENTA}ARE YOU SURE YOU WANT TO CONTINUE? (Y/N) ${C_RESET}"
       read -e -r confirm
       if [[ "$confirm" =~ ^[yY]$ ]]; then
-          echo -e "\nFIRST, YOU MUST SET A PASSWORD FOR THE ROOT USER."
+          echo -e "\nFirst, you must set a password for the ROOT user."
           passwd root
           create_backup "$sshd_config"
           if grep -q "^#*PermitRootLogin" "$sshd_config"; then
@@ -1214,7 +1232,7 @@ manage_ssh_root() {
     3) return ;;
     *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}" ;;
   esac
-  read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+  read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_reboot_cron() {
@@ -1225,7 +1243,7 @@ manage_reboot_cron() {
     printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "ADD CRON JOB TO REBOOT EVERY 12 HOURS"
     printf "  ${C_YELLOW}%2d)${C_RED}   %s\n"   "4" "REMOVE ALL AUTOMATIC REBOOT CRON JOBS"
     printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "RETURN TO SECURITY MENU"
-    echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+    echo -e "${B_BLUE}------------------------------------------${C_RESET}"
     printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
     read -e -r choice
     
@@ -1249,19 +1267,18 @@ manage_reboot_cron() {
         5) return ;;
         *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}" ;;
     esac
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 change_server_password() {
     clear
     echo -e "${B_CYAN}--- CHANGE SERVER PASSWORD ---${C_RESET}\n"
-    echo -e "${C_YELLOW}THIS SCRIPT USES THE SYSTEM'S SECURE 'PASSWD' UTILITY TO CHANGE YOUR PASSWORD.${C_RESET}"
-    echo -e "${C_WHITE}PLEASE FOLLOW THE ON-SCREEN INSTRUCTIONS TO CHANGE THE PASSWORD.${C_RESET}"
+    echo -e "${C_YELLOW}This script uses the system's secure 'passwd' tool to change your password.${C_RESET}"
+    echo -e "${C_WHITE}Please follow the on-screen instructions to complete the password change.${C_RESET}"
     echo -e "${B_BLUE}-----------------------------------${C_RESET}"
     passwd
     log_message "SUCCESS" "PASSWORD CHANGE PROCESS EXECUTED BY USER."
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
-
 # ###########################################################################
 # --- TCP Optimizers and Panel Management ---
 # ###########################################################################
@@ -1354,20 +1371,21 @@ EOF
     sysctl -p /etc/sysctl.d/99-custom-optimizer.conf &>/dev/null
     log_message "SUCCESS" "CUBIC (UNSTABLE NETWORK) PROFILE APPLIED SUCCESSFULLY."
 }
-
 manage_tcp_optimizers() {
     while true; do
         clear
-        echo -e "${B_CYAN}--- MANAGE TCP OPTIMIZERS ---${C_RESET}\n"
-        local current_qdisc=$(sysctl -n net.core.default_qdisc)
-        local current_tcp_algo=$(sysctl -n net.ipv4.tcp_congestion_control)
+        echo -e "${B_CYAN}--- TCP OPTIMIZER MANAGEMENT ---${C_RESET}\n"
+        local current_qdisc
+        current_qdisc=$(sysctl -n net.core.default_qdisc)
+        local current_tcp_algo
+        current_tcp_algo=$(sysctl -n net.ipv4.tcp_congestion_control)
         echo -e "ACTIVE ALGORITHM: ${B_GREEN}${current_tcp_algo^^} ${C_RESET} | ACTIVE QUEUE: ${B_GREEN}${current_qdisc^^}${C_RESET}\n"
 
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "INSTALL BBR PLUS OPTIMIZER"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "INSTALL BBRV2 OPTIMIZER"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "INSTALL HYBLA PLUS OPTIMIZER"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "INSTALL CUBIC OPTIMIZER (FOR UNSTABLE NETWORKS)"
-        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "5" "REMOVE ALL OPTIMIZERS & REVERT TO KERNEL DEFAULT"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "APPLY BBR PLUS PROFILE"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "APPLY BBRV2 PROFILE"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "APPLY HYBLA PLUS PROFILE"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "APPLY CUBIC PROFILE (FOR UNSTABLE NETWORKS)"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "5" "REMOVE ALL OPTIMIZERS (RESTORE KERNEL DEFAULT)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "6" "RETURN TO PREVIOUS MENU"
         echo -e "${B_BLUE}-----------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
@@ -1382,7 +1400,7 @@ manage_tcp_optimizers() {
             6) return ;;
             *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; sleep 1 ;;
         esac
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
     done
 }
 manage_txui_panel() {
@@ -1390,9 +1408,9 @@ manage_txui_panel() {
     log_message "INFO" "--- TX-UI PANEL MANAGEMENT ---"
 
     echo -e "${B_CYAN}--- INSTALL / UPDATE TX-UI PANEL ---${C_RESET}\n"
-    echo -e "${C_WHITE}THIS SCRIPT INSTALLS THE LATEST VERSION OF THE TX-UI PANEL FOR YOUR SYSTEM'S ARCHITECTURE.${C_RESET}"
-    echo -e "${C_YELLOW}IF THE INSTALLATION FILE ALREADY EXISTS IN /root, IT WILL BE USED.${C_RESET}"
-    echo -e "${C_YELLOW}OTHERWISE, THE LATEST VERSION WILL BE AUTOMATICALLY DOWNLOADED FROM GITHUB.${C_RESET}\n"
+    echo -e "${C_WHITE}This script installs the latest version of the TX-UI panel compatible with your system's architecture.${C_RESET}"
+    echo -e "${C_YELLOW}If an installation file already exists in /root, it will be used.${C_RESET}"
+    echo -e "${C_YELLOW}Otherwise, the latest version will be downloaded automatically from GitHub.${C_RESET}\n"
     
     printf "%b" "${B_MAGENTA}ARE YOU READY TO START THE INSTALLATION / UPDATE? (Y/N): ${C_RESET}"
     read -e -r choice
@@ -1401,7 +1419,8 @@ manage_txui_panel() {
         return
     fi
 
-    local ARCH=$(uname -m)
+    local ARCH
+    ARCH=$(uname -m)
     local XUI_ARCH
     case "${ARCH}" in
       x86_64 | x64 | amd64) XUI_ARCH="amd64" ;;
@@ -1426,7 +1445,7 @@ manage_txui_panel() {
         if ! wget -O "$archive_path" "$download_url"; then
             log_message "ERROR" "DOWNLOAD FAILED. PLEASE CHECK YOUR INTERNET CONNECTION."
             rm -f "$archive_path"
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
             return
         fi
         log_message "SUCCESS" "LATEST PANEL VERSION DOWNLOADED SUCCESSFULLY."
@@ -1441,14 +1460,14 @@ manage_txui_panel() {
     tar -zxvf "$archive_path" -C /root/
     if [ ! -d "/root/x-ui" ]; then
         log_message "ERROR" "COULD NOT FIND /root/x-ui DIRECTORY AFTER EXTRACTION. THE ARCHIVE MAY BE CORRUPT."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
 
     cd /root/x-ui
     if [ ! -f "x-ui.sh" ]; then
         log_message "ERROR" "INSTALLATION SCRIPT 'x-ui.sh' NOT FOUND IN EXTRACTED FILES."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
 
@@ -1457,10 +1476,107 @@ manage_txui_panel() {
     ./x-ui.sh
     
     log_message "INFO" "INSTALLATION PROCESS BY THE PANEL SCRIPT HAS FINISHED."
-    echo -e "${C_YELLOW}IF THE PANEL WAS INSTALLED CORRECTLY, YOU SHOULD HAVE SEEN ITS MENU.${C_RESET}"
-    echo -e "${C_WHITE}YOU CAN NOW USE THE 'x-ui' COMMAND TO MANAGE THE PANEL.${C_RESET}"
+    echo -e "${C_YELLOW}If the panel was installed correctly, you should have seen its menu.${C_RESET}"
+    echo -e "${C_WHITE}You can now use the 'x-ui' command to manage the panel.${C_RESET}"
 
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+}
+
+# ###########################################################################
+# --- 3X-UI, WhatsApp Fix, and Other Utilities ---
+# ###########################################################################
+
+manage_3xui_panel() {
+    clear
+    log_message "INFO" "--- 3X-UI PANEL MANAGEMENT ---"
+
+    echo -e "${B_CYAN}--- INSTALL / UPDATE 3X-UI PANEL ---${C_RESET}\n"
+    echo -e "${C_WHITE}This script installs or updates the 3X-UI panel (by MHSanaei).${C_RESET}"
+    echo -e "${C_YELLOW}The installation method is smart:${C_RESET}"
+    echo -e "${C_YELLOW}  - If the panel's compressed file exists in /root, a manual (offline) installation will be performed.${C_RESET}"
+    echo -e "${C_YELLOW}  - Otherwise, an automatic (online) installation will be performed from GitHub.${C_RESET}\n"
+
+    printf "%b" "${B_MAGENTA}ARE YOU READY TO START THE INSTALLATION / UPDATE? (Y/N): ${C_RESET}"
+    read -e -r choice
+    if [[ ! "$choice" =~ ^[yY]$ ]]; then
+        log_message "INFO" "3X-UI PANEL INSTALLATION CANCELED."
+        return
+    fi
+
+    # Detect architecture
+    local ARCH
+    ARCH=$(uname -m)
+    local XUI_ARCH
+    case "${ARCH}" in
+      x86_64 | x64 | amd64) XUI_ARCH="amd64" ;;
+      i*86 | x86) XUI_ARCH="386" ;;
+      armv8* | armv8 | arm64 | aarch64) XUI_ARCH="arm64" ;;
+      armv7* | armv7) XUI_ARCH="armv7" ;;
+      armv6* | armv6) XUI_ARCH="armv6" ;;
+      armv5* | armv5) XUI_ARCH="armv5" ;;
+      s390x) XUI_ARCH='s390x' ;;
+      *) XUI_ARCH="amd64" ;;
+    esac
+    
+    local archive_name="x-ui-linux-${XUI_ARCH}.tar.gz"
+    local archive_path="/root/${archive_name}"
+    local install_success=false
+
+    if [ -f "$archive_path" ]; then
+        # --- Manual/Offline Installation (Improved) ---
+        log_message "INFO" "DETECTED LOCAL INSTALLATION FILE: ${archive_path}"
+        log_message "INFO" "PROCEEDING WITH ROBUST (OFFLINE) INSTALLATION..."
+        
+        log_message "INFO" "CLEANING UP PREVIOUS INSTALLATIONS..."
+        systemctl stop x-ui &>/dev/null
+        rm -rf /usr/local/x-ui /etc/systemd/system/x-ui.service /usr/bin/x-ui /root/x-ui
+        
+        log_message "INFO" "EXTRACTING PANEL FILES TO /root/..."
+        if tar zxvf "$archive_path" -C /root/; then
+            if [ ! -d "/root/x-ui" ]; then
+                log_message "ERROR" "COULD NOT FIND /root/x-ui DIRECTORY AFTER EXTRACTION."
+            else
+                log_message "INFO" "ENTERING /root/x-ui AND RUNNING THE PANEL'S OWN INSTALLER..."
+                cd /root/x-ui
+                if ./x-ui.sh install; then
+                    log_message "SUCCESS" "3X-UI PANEL INSTALLED SUCCESSFULLY FROM LOCAL FILE."
+                    install_success=true
+                else
+                    log_message "ERROR" "THE PANEL'S OWN INSTALLER SCRIPT FAILED."
+                fi
+                cd /root/ # Return to a known directory
+            fi
+        else
+            log_message "ERROR" "FAILED TO EXTRACT THE ARCHIVE."
+        fi
+
+    else
+        # --- Automatic/Online Installation ---
+        log_message "INFO" "LOCAL INSTALLATION FILE NOT FOUND."
+        log_message "INFO" "PROCEEDING WITH AUTOMATIC (ONLINE) INSTALLATION..."
+        if ! check_internet_connection; then
+            log_message "ERROR" "NO INTERNET CONNECTION. CANNOT PROCEED WITH ONLINE INSTALLATION."
+        else
+            if bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh); then
+                 log_message "SUCCESS" "3X-UI ONLINE INSTALLATION SCRIPT EXECUTED."
+                 install_success=true
+            else
+                 log_message "ERROR" "ONLINE INSTALLATION SCRIPT FAILED."
+            fi
+        fi
+    fi
+
+    if [[ "$install_success" == true ]]; then
+        check_service_status "x-ui"
+        echo -e "\n${B_GREEN}Panel installed successfully. The panel menu will now run for confirmation...${C_RESET}"
+        echo -e "${C_YELLOW}After you are done with the panel, exit its menu to return to the main script.${C_RESET}"
+        sleep 2
+        x-ui
+    else
+        log_message "ERROR" "3X-UI PANEL INSTALLATION FAILED. PLEASE CHECK THE LOGS."
+    fi
+
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO RETURN TO THE MAIN MENU...${N}"
 }
 
 
@@ -1469,9 +1585,141 @@ fix_whatsapp_time() {
     log_message "INFO" "SETTING SERVER TIMEZONE TO FIX WHATSAPP DATE ISSUE..."
     timedatectl set-timezone Asia/Tehran
     log_message "SUCCESS" "TIMEZONE CHANGED TO ASIA/TEHRAN."
-    echo -e "${GREEN}SERVER TIMEZONE SUCCESSFULLY SET TO ASIA/TEHRAN.${NC}"
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    echo -e "${GREEN}Server timezone successfully set to ASIA/TEHRAN.${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
+# ###########################################################################
+# --- NEW: Advanced Warp Scanner (Final Corrected Version) ---
+# ###########################################################################
+manage_advanced_warp_scanner() {
+    local SCANNER_DIR="/usr/local/bin"
+    local SCANNER_BIN="${SCANNER_DIR}/warp-scanner"
+    local SCANNER_XRAY="${SCANNER_DIR}/xray" # The scanner might place an xray core here
+    local SCANNER_REPO="bia-pain-bache/BPB-Warp-Scanner"
+
+    _install_warp_scanner() {
+        log_message "INFO" "STARTING WARP SCANNER INSTALLATION/UPDATE..."
+        
+        if ! command -v curl &>/dev/null || ! command -v wget &>/dev/null; then
+            log_message "ERROR" "CURL AND WGET ARE REQUIRED. PLEASE INSTALL THEM."
+            return 1
+        fi
+
+        local ARCH
+        ARCH=$(uname -m)
+        case "${ARCH}" in
+          "x86_64" | "amd64") ARCH="amd64" ;;
+          "aarch64" | "arm64") ARCH="arm64" ;;
+          *)
+            log_message "ERROR" "UNSUPPORTED ARCHITECTURE: ${ARCH}. ONLY AMD64 AND ARM64 ARE SUPPORTED BY THIS SCANNER."
+            return 1
+            ;;
+        esac
+
+        # Using the specific, working version link you provided
+        local DOWNLOAD_URL="https://github.com/${SCANNER_REPO}/releases/download/v1.1.1/BPB-Warp-Scanner-linux-${ARCH}.tar.gz"
+        local TEMP_FILE="/tmp/warp-scanner.tar.gz"
+        
+        log_message "INFO" "DOWNLOADING STABLE SCANNER VERSION FROM ${DOWNLOAD_URL}"
+        
+        # Robust download logic
+        if ! curl -L --fail --connect-timeout 20 -o "$TEMP_FILE" "$DOWNLOAD_URL"; then
+            log_message "WARN" "CURL FAILED. TRYING WGET AS A FALLBACK..."
+            rm -f "$TEMP_FILE"
+            if ! wget --timeout=20 -O "$TEMP_FILE" "$DOWNLOAD_URL"; then
+                log_message "ERROR" "DOWNLOAD FAILED WITH BOTH CURL AND WGET. PLEASE CHECK YOUR SERVER'S NETWORK."
+                rm -f "$TEMP_FILE"
+                return 1
+            fi
+        fi
+
+        if [ ! -s "$TEMP_FILE" ]; then
+            log_message "ERROR" "DOWNLOADED FILE IS EMPTY. ABORTING."
+            rm -f "$TEMP_FILE"
+            return 1
+        fi
+
+        log_message "SUCCESS" "DOWNLOAD COMPLETED. EXTRACTING..."
+        
+        # Extract using tar, targeting a specific directory
+        mkdir -p "/tmp/warp-scanner-extracted"
+        if ! tar -zxvf "$TEMP_FILE" -C "/tmp/warp-scanner-extracted"; then
+            log_message "ERROR" "FAILED TO EXTRACT THE .TAR.GZ ARCHIVE."
+            rm -rf "$TEMP_FILE" "/tmp/warp-scanner-extracted"
+            return 1
+        fi
+        
+        # The binary is directly inside after extraction
+        local extracted_bin="/tmp/warp-scanner-extracted/BPB-Warp-Scanner"
+        if [ ! -f "$extracted_bin" ]; then
+             log_message "ERROR" "SCANNER BINARY NOT FOUND IN THE ARCHIVE."
+             rm -rf "$TEMP_FILE" "/tmp/warp-scanner-extracted"
+             return 1
+        fi
+
+        # Move the binary to the final destination
+        mv "$extracted_bin" "$SCANNER_BIN"
+        chmod +x "$SCANNER_BIN"
+        
+        log_message "SUCCESS" "WARP SCANNER INSTALLED/UPDATED SUCCESSFULLY."
+        rm -rf "$TEMP_FILE" "/tmp/warp-scanner-extracted"
+        return 0
+    }
+
+    _uninstall_warp_scanner() {
+        printf "\n%b" "${C_RED}** WARNING ** This will remove the scanner and its Xray core. Are you sure? (y/n): ${C_RESET}"
+        read -e -r confirm
+        if [[ ! "$confirm" =~ ^[yY]$ ]]; then
+            log_message "INFO" "UNINSTALLATION CANCELED."
+            return
+        fi
+        log_message "INFO" "UNINSTALLING WARP SCANNER AND ITS COMPONENTS..."
+        rm -f "$SCANNER_BIN" "$SCANNER_XRAY"
+        rm -f /root/result.csv /root/warp-v4.txt /root/warp-v6.txt &>/dev/null
+        log_message "SUCCESS" "WARP SCANNER UNINSTALLED."
+    }
+
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- ADVANCED WARP SCANNER ---${C_RESET}\n"
+        if [ -f "$SCANNER_BIN" ]; then
+            echo -e "STATUS: ${G}INSTALLED${N}"
+        else
+            echo -e "STATUS: ${R}NOT INSTALLED${N}"
+        fi
+        echo ""
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "INSTALL / UPDATE SCANNER"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "2" "RUN SCANNER"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "UNINSTALL SCANNER"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "RETURN TO SECURITY MENU"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
+        read -e -r choice
+
+        case $choice in
+            1) 
+                _install_warp_scanner
+                ;;
+            2)
+                if [ -f "$SCANNER_BIN" ]; then
+                    clear
+                    log_message "INFO" "EXECUTING WARP SCANNER..."
+                    echo -e "${B_YELLOW}Running the scanner... To return, exit from the scanner's own menu.${N}\n"
+                    "$SCANNER_BIN"
+                else
+                    log_message "WARN" "SCANNER IS NOT INSTALLED. PLEASE INSTALL IT FIRST."
+                fi
+                ;;
+            3)
+                _uninstall_warp_scanner
+                ;;
+            4) return ;;
+            *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; sleep 1 ;;
+        esac
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+    done
+}
+
 # ###########################################################################
 # --- Final Security Tools & Network Utilities ---
 # ###########################################################################
@@ -1484,7 +1732,7 @@ manage_firewall() {
             systemctl disable firewalld.service &>/dev/null
             systemctl mask firewalld.service &>/dev/null
             log_message "SUCCESS" "FIREWALLD SERVICE DISABLED AND MASKED SUCCESSFULLY."
-            echo -e "${GREEN}TO PREVENT CONFLICTS, THE CONFLICTING FIREWALLD SERVICE WAS AUTOMATICALLY DISABLED.${NC}"
+            echo -e "${GREEN}The conflicting service 'firewalld' was automatically disabled to prevent issues.${N}"
             sleep 2
         fi
         local conflict_service=""
@@ -1501,7 +1749,7 @@ manage_firewall() {
                 systemctl mask "${conflict_service}.service" &>/dev/null
                 rm -f /etc/iptables/rules.v4 /etc/iptables/rules.v6 &>/dev/null
                 log_message "SUCCESS" "SERVICE ${conflict_service} DISABLED AND MASKED SUCCESSFULLY."
-                echo -e "${GREEN}TO PREVENT CONFLICTS, THE CONFLICTING ${conflict_service} SERVICE WAS AUTOMATICALLY DISABLED.${NC}"
+                echo -e "${GREEN}The conflicting service ${conflict_service} was automatically disabled to prevent issues.${N}"
                 sleep 2
             fi
         fi
@@ -1521,14 +1769,15 @@ manage_firewall() {
         while true; do
             clear
             echo -e "${B_CYAN}--- MANAGE SERVER PING (ICMP) ---${C_RESET}\n"
-            local ping_status_val=$(check_ping_status)
+            local ping_status_val
+            ping_status_val=$(check_ping_status)
             local ping_status_display
             if [[ "$ping_status_val" == "BLOCKED" ]]; then
                 ping_status_display="${R}DISABLED (BLOCKED)${N}"
             else
                 ping_status_display="${G}ENABLED (ALLOWED)${N}"
             fi
-            echo -e "REAL-TIME PING STATUS: ${ping_status_display}\n"
+            echo -e "CURRENT PING STATUS: ${ping_status_display}\n"
             printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "ENABLE PING"
             printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "DISABLE PING"
             printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "RETURN TO FIREWALL MENU"
@@ -1575,7 +1824,7 @@ manage_firewall() {
         log_message "WARN" "UFW IS NOT INSTALLED. ATTEMPTING TO INSTALL AUTOMATICALLY..."
         if ! install_dependencies; then
             log_message "ERROR" "AUTOMATIC INSTALLATION OF UFW FAILED. PLEASE INSTALL IT MANUALLY."
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
             return
         fi
         sleep 1
@@ -1596,7 +1845,7 @@ manage_firewall() {
         echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "ENABLE FIREWALL"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "DISABLE FIREWALL"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "VIEW STATUS AND RULES"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "VIEW STATUS & RULES"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "ALLOW A PORT"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "DELETE A RULE BY NUMBER"
         printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "6" "AUTO-ADD OPEN PORTS"
@@ -1608,9 +1857,10 @@ manage_firewall() {
         case $choice in
             1)
                 log_message "INFO" "ENABLING FIREWALL..."
-                local ssh_port=$(ss -lntp | grep sshd | awk '{print $4}' | sed 's/.*://' | head -n 1)
+                local ssh_port
+                ssh_port=$(ss -lntp | grep sshd | awk '{print $4}' | sed 's/.*://' | head -n 1)
                 if [[ -n "$ssh_port" ]]; then
-                    echo -e "${Y}YOUR SSH PORT (${ssh_port}) WAS DETECTED AND ALLOWED AUTOMATICALLY.${N}"
+                    echo -e "${Y}Your SSH port (${ssh_port}) was detected and automatically allowed.${N}"
                     ufw allow "$ssh_port/tcp" >/dev/null 2>&1
                 else
                     log_message "WARN" "COULD NOT DETECT SSH PORT! MAKE SURE TO ALLOW IT MANUALLY."
@@ -1620,22 +1870,22 @@ manage_firewall() {
                 echo "y" | ufw enable
                 systemctl enable ufw.service >/dev/null 2>&1
                 log_message "SUCCESS" "UFW FIREWALL ENABLED AND SECURED WITH DEFAULT RULES."
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             2)
                 log_message "INFO" "DISABLING FIREWALL..."
                 ufw disable
                 log_message "SUCCESS" "UFW FIREWALL DISABLED."
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             3)
                 clear
                 echo -e "${B_CYAN}--- CURRENT FIREWALL STATUS AND RULES ---${C_RESET}\n"
                 ufw status verbose
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             4) 
-                printf "%b" "${B_MAGENTA}PLEASE ENTER THE PORT NUMBER (E.G., 443 OR 8000:9000): ${C_RESET}"
+                printf "%b" "${B_MAGENTA}PLEASE ENTER THE PORT TO ALLOW (e.g., 443 or 8000:9000): ${C_RESET}"
                 read -e -r port_to_allow
                 if [[ -n "$port_to_allow" ]]; then
                     ufw allow "$port_to_allow"
@@ -1643,11 +1893,11 @@ manage_firewall() {
                 else
                     log_message "WARN" "INVALID INPUT."
                 fi
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             5) 
                 clear
-                echo -e "${B_CYAN}--- CURRENT RULES FOR DELETION (BY NUMBER) ---${C_RESET}\n"
+                echo -e "${B_CYAN}--- CURRENT RULES (FOR DELETION BY NUMBER) ---${C_RESET}\n"
                 ufw status numbered
                 printf "\n%b" "${B_MAGENTA}ENTER THE RULE NUMBER YOU WANT TO DELETE: ${C_RESET}"
                 read -e -r rule_to_delete
@@ -1657,18 +1907,19 @@ manage_firewall() {
                 else
                     log_message "WARN" "INVALID RULE NUMBER."
                 fi
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             6) 
                 clear
                 echo -e "${B_CYAN}--- AUTO-ADDING CURRENTLY USED PORTS ---${C_RESET}\n"
-                local ssh_port=$(ss -lntp | grep sshd | awk '{print $4}' | sed 's/.*://' | head -n 1)
+                local ssh_port
+                ssh_port=$(ss -lntp | grep sshd | awk '{print $4}' | sed 's/.*://' | head -n 1)
                 mapfile -t listening_ports < <(ss -lntu | grep 'LISTEN' | awk '{print $5}' | sed 's/.*://' | sort -un)
                 mapfile -t all_ports_to_allow < <(printf "%s\n" "${listening_ports[@]}" "$ssh_port" | sort -un)
                 if [ ${#all_ports_to_allow[@]} -eq 0 ]; then
                     log_message "INFO" "NO ACTIVE LISTENING PORTS FOUND TO ADD."
                 else
-                    echo -e "${C_WHITE}THE FOLLOWING PORTS WERE DETECTED AND THEIR RULES ADDED TO THE FIREWALL:${N}"
+                    echo -e "${C_WHITE}The following ports were detected and allowed in the firewall:${N}"
                     for port in "${all_ports_to_allow[@]}"; do
                         if [[ -n "$port" ]]; then
                            ufw allow "$port" > /dev/null
@@ -1682,7 +1933,7 @@ manage_firewall() {
                     log_message "SUCCESS" "ALL ACTIVE LISTENING PORTS HAVE BEEN ALLOWED IN THE FIREWALL."
                     ufw reload >/dev/null
                 fi
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             7)
                 _manage_ping_submenu
@@ -1697,7 +1948,13 @@ manage_firewall() {
     done
 }
 manage_abuse_defender() {
-    # List of IPs to block are embedded directly into the script
+    if ! ufw status | grep -q "Status: active"; then
+        log_message "WARN" "UFW (FIREWALL) IS NOT ACTIVE. PLEASE ENABLE IT FIRST FROM THE FIREWALL MENU."
+        echo -e "\n${C_RED}ERROR: UFW firewall is not active. Please enable it from the 'Firewall Management' menu first.${N}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+        return
+    fi
+    
     local ABUSE_IPS=(
         "185.105.237.0/24" "172.93.52.0/24" "5.2.72.0/24" "5.2.78.0/24" "5.2.82.0/24"
         "5.2.83.0/24" "5.2.86.0/24" "5.2.87.0/24" "46.224.0.0/16" "79.175.128.0/17"
@@ -1705,15 +1962,16 @@ manage_abuse_defender() {
         "185.5.96.0/22" "185.13.36.0/22" "185.88.152.0/22" "188.94.152.0/21" "213.108.224.0/20"
         "217.218.0.0/15"
     )
+    local COMMENT_TAG="IRNET-ABUSE-DEFENDER"
 
     while true; do
         clear
-        echo -e "${B_CYAN}--- ABUSE FIREWALL MANAGEMENT ---${C_RESET}\n"
+        echo -e "${B_CYAN}--- ABUSE DEFENDER (UFW-BASED) ---${C_RESET}\n"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "BLOCK ABUSE IP RANGES"
-        printf "  ${C_YELLOW}%2d)${C_GREEN} %s\n" "2" "WHITELIST AN IP ADDRESS"
-        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "MANUALLY BLOCK AN IP ADDRESS"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "VIEW FIREWALL RULES (INPUT CHAIN)"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "CLEAR ABUSE RULES (UNBLOCK)"
+        printf "  ${C_YELLOW}%2d)${C_GREEN} %s\n" "2" "WHITELIST AN IP / RANGE"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "MANUALLY BLOCK AN IP / RANGE"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "VIEW FIREWALL RULES (UFW)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "REMOVE ALL ABUSE DEFENDER RULES (UNBLOCK)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "6" "RETURN TO SECURITY MENU"
         echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
@@ -1721,56 +1979,65 @@ manage_abuse_defender() {
 
         case $choice in
             1) # Block Abuse IP-Ranges
-                log_message "INFO" "BLOCKING ABUSE IP RANGES..."
+                log_message "INFO" "BLOCKING ABUSE IP RANGES VIA UFW..."
                 local add_count=0
                 for ip in "${ABUSE_IPS[@]}"; do
-                    if ! iptables -C INPUT -s "$ip" -j DROP &>/dev/null; then
-                        iptables -A INPUT -s "$ip" -j DROP
+                    if ! ufw status | grep -qw "$ip"; then
+                        ufw deny from "$ip" to any comment "$COMMENT_TAG" >/dev/null
                         ((add_count++))
                     fi
                 done
-                log_message "SUCCESS" "$add_count NEW RULES ADDED. ABUSE IPS BLOCKED."
-                echo -e "\n${G}BLOCKING OPERATION SUCCESSFUL. $add_count NEW RULES ADDED.${N}"
+                log_message "SUCCESS" "$add_count NEW UFW RULES ADDED. ABUSE IPS BLOCKED."
+                echo -e "\n${G}Block operation successful. $add_count new rules added to UFW.${N}"
+                ufw reload >/dev/null
                 ;;
             2) # Whitelist an IP/IP-Ranges manually
-                printf "\n%b" "${B_MAGENTA}ENTER IP OR RANGE TO WHITELIST: ${C_RESET}"
+                printf "\n%b" "${B_MAGENTA}ENTER THE IP OR RANGE TO WHITELIST: ${C_RESET}"
                 read -e -r ip_to_whitelist
                 if [[ -n "$ip_to_whitelist" ]]; then
-                    iptables -I INPUT 1 -s "$ip_to_whitelist" -j ACCEPT
-                    log_message "SUCCESS" "IP $ip_to_whitelist WHITELISTED."
-                    echo -e "\n${G}IP $ip_to_whitelist ADDED TO WHITELIST.${N}"
+                    ufw allow from "$ip_to_whitelist" to any comment "${COMMENT_TAG}-WHITELIST"
+                    log_message "SUCCESS" "IP $ip_to_whitelist WHITELISTED IN UFW."
+                    echo -e "\n${G}IP $ip_to_whitelist has been added to the firewall whitelist.${N}"
+                    ufw reload >/dev/null
                 else
                     log_message "WARN" "NO IP PROVIDED."
                 fi
                 ;;
             3) # Block an IP/IP-Ranges manually
-                printf "\n%b" "${B_MAGENTA}ENTER IP OR RANGE TO BLOCK MANUALLY: ${C_RESET}"
+                printf "\n%b" "${B_MAGENTA}ENTER THE IP OR RANGE TO MANUALLY BLOCK: ${C_RESET}"
                 read -e -r ip_to_block
                 if [[ -n "$ip_to_block" ]]; then
-                    iptables -A INPUT -s "$ip_to_block" -j DROP
-                    log_message "SUCCESS" "IP $ip_to_block BLOCKED."
-                    echo -e "\n${G}IP $ip_to_block MANUALLY BLOCKED.${N}"
+                    ufw deny from "$ip_to_block" to any comment "${COMMENT_TAG}-MANUAL"
+                    log_message "SUCCESS" "IP $ip_to_block BLOCKED IN UFW."
+                    echo -e "\n${G}IP $ip_to_block has been manually blocked in the firewall.${N}"
+                    ufw reload >/dev/null
                 else
                     log_message "WARN" "NO IP PROVIDED."
                 fi
                 ;;
             4) # View Rules
                 clear
-                echo -e "${B_CYAN}--- CURRENT RULES IN THE FIREWALL INPUT CHAIN ---${C_RESET}\n"
-                iptables -L INPUT -n --line-numbers
-                echo -e "\n${C_YELLOW}THIS LIST INCLUDES ALL RULES APPLIED TO INCOMING TRAFFIC.${N}"
+                echo -e "${B_CYAN}--- CURRENT FIREWALL (UFW) RULES LIST ---${C_RESET}\n"
+                ufw status numbered
+                echo -e "\n${C_YELLOW}Rules added by this script are tagged with the comment '${COMMENT_TAG}'.${N}"
                 ;;
             5) # Clear all rules (Unblock Abuse IPs)
-                log_message "INFO" "UNBLOCKING ABUSE IP RANGES..."
-                local remove_count=0
-                for ip in "${ABUSE_IPS[@]}"; do
-                    while iptables -D INPUT -s "$ip" -j DROP &>/dev/null; do
-                        ((remove_count++))
+                log_message "INFO" "REMOVING ALL ABUSE DEFENDER RULES FROM UFW..."
+                local rules_to_delete
+                mapfile -t rules_to_delete < <(ufw status numbered | grep "$COMMENT_TAG" | awk -F'[][]' '{print $2}' | sort -rn)
+                
+                if [ ${#rules_to_delete[@]} -eq 0 ]; then
+                    log_message "INFO" "NO ABUSE DEFENDER RULES FOUND TO DELETE."
+                    echo -e "\n${Y}No rules found to delete.${N}"
+                else
+                    echo -e "${C_YELLOW}Removing ${#rules_to_delete[@]} rules...${N}"
+                    for rule_num in "${rules_to_delete[@]}"; do
+                        yes | ufw delete "$rule_num" >/dev/null
                     done
-                done
-                log_message "SUCCESS" "$remove_count ABUSE RULES REMOVED."
-                echo -e "\n${G}ABUSE LIST BLOCKING RULES SUCCESSFULLY REMOVED. ($remove_count RULES DELETED).${N}"
-                echo -e "${C_YELLOW}NOTE: THIS OPTION ONLY CLEARS RULES ADDED BY OPTION 1.${N}"
+                    log_message "SUCCESS" "${#rules_to_delete[@]} ABUSE RULES REMOVED FROM UFW."
+                    echo -e "\n${G}All ABUSE DEFENDER block rules have been successfully removed.${N}"
+                    ufw reload >/dev/null
+                fi
                 ;;
             6) # Exit
                 return
@@ -1780,10 +2047,9 @@ manage_abuse_defender() {
                 continue
                 ;;
         esac
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
     done
 }
-
 manage_xui_assistant() {
     local ASSISTANT_DIR="/root/xui-assistant"
     # The real executable is menu.sh
@@ -1834,7 +2100,7 @@ manage_xui_assistant() {
             chmod +x "$executable_script_path"
             ln -sf "$executable_script_path" "$SYMLINK_PATH"
             log_message "SUCCESS" "X-UI ASSISTANT INSTALLED SUCCESSFULLY."
-            echo -e "\n${G}ASSISTANT INSTALLED SUCCESSFULLY. RUN IT USING OPTION 4 IN THIS MENU OR THE 'x-ui-assistant' COMMAND.${N}"
+            echo -e "\n${G}Assistant installed successfully. Use option 4 in this menu or type 'x-ui-assistant' in the terminal to run it.${N}"
         else
             log_message "ERROR" "MAIN SCRIPT FILE '$EXECUTABLE_NAME' NOT FOUND AFTER CLONING."
             return 1
@@ -1843,11 +2109,11 @@ manage_xui_assistant() {
     }
 
     _uninstall_xui_assistant() {
-        printf "\n%b" "${C_RED}** WARNING ** THIS WILL COMPLETELY REMOVE THE X-UI ASSISTANT. ARE YOU SURE? (Y/N): ${C_RESET}"
+        printf "\n%b" "${C_RED}** WARNING ** This will completely remove the X-UI Assistant. Are you sure? (y/n): ${C_RESET}"
         read -e -r confirm
         if [[ ! "$confirm" =~ ^[yY]$ ]]; then
             log_message "INFO" "UNINSTALLATION CANCELED BY USER."
-            echo -e "\nUNINSTALLATION CANCELED."
+            echo -e "\nUninstall operation canceled."
             return
         fi
         
@@ -1855,12 +2121,12 @@ manage_xui_assistant() {
         rm -f "$SYMLINK_PATH"
         rm -rf "$ASSISTANT_DIR"
         log_message "SUCCESS" "X-UI ASSISTANT HAS BEEN UNINSTALLED."
-        echo -e "\n${G}X-UI ASSISTANT UNINSTALLED SUCCESSFULLY.${N}"
+        echo -e "\n${G}X-UI Assistant has been successfully uninstalled.${N}"
     }
 
     while true; do
         clear
-        echo -e "${B_CYAN}--- X-UI PANEL ASSISTANT MANAGEMENT (MULTI-ADMIN) ---${C_RESET}\n"
+        echo -e "${B_CYAN}--- MANAGE X-UI PANEL ASSISTANT (MULTI-ADMIN) ---${C_RESET}\n"
         
         if [ -f "$SYMLINK_PATH" ]; then
             echo -e "STATUS: ${G}INSTALLED${N}"
@@ -1887,7 +2153,7 @@ manage_xui_assistant() {
                     _uninstall_xui_assistant
                 else
                     log_message "INFO" "ASSISTANT IS NOT INSTALLED. NOTHING TO UNINSTALL."
-                    echo -e "\n${Y}ASSISTANT IS NOT ALREADY INSTALLED.${N}"
+                    echo -e "\n${Y}Assistant is not already installed.${N}"
                 fi
                 ;;
             4) # Run Management Menu
@@ -1896,7 +2162,7 @@ manage_xui_assistant() {
                     "$SYMLINK_PATH"
                 else
                     log_message "INFO" "ASSISTANT IS NOT INSTALLED. CANNOT RUN."
-                    echo -e "\n${Y}ASSISTANT IS NOT INSTALLED. PLEASE INSTALL IT FIRST USING OPTION 1.${N}"
+                    echo -e "\n${Y}Assistant is not installed. Please install it first using option 1.${N}"
                 fi
                 ;;
             5) # Exit
@@ -1907,17 +2173,16 @@ manage_xui_assistant() {
                 continue
                 ;;
         esac
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
     done
 }
-
 manage_tc_script() {
   clear
-  echo -e "${B_CYAN}--- SPEED OPTIMIZATION (TC) ---${C_RESET}\n"
+  echo -e "${B_CYAN}--- TC SPEED OPTIMIZATION ---${C_RESET}\n"
   printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "INSTALL AND TEST TC OPTIMIZATION SCRIPT"
   printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "UNINSTALL TC OPTIMIZATION SCRIPT"
   printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "RETURN TO OPTIMIZATION MENU"
-  echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+  echo -e "${B_BLUE}---------------------------------------------${C_RESET}"
   printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
   read -e -r choice
   
@@ -1951,20 +2216,20 @@ tc qdisc show dev $INTERFACE | grep -E 'cake|fq_codel|htb|netem'
 echo -e "\033[38;5;208mIRNET\033[0m"
 EOF
       chmod +x "$SCRIPT_PATH"
-      (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH"; echo "@reboot sleep 30 && $SCRIPT_PATH") | crontab -
+      (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH"; echo "@reboot sleep 30 && \"$SCRIPT_PATH\"") | crontab -
       log_message "SUCCESS" "TC OPTIMIZATION SCRIPT INSTALLED SUCCESSFULLY."
       echo -e "\n${C_YELLOW}--- RUNNING AUTOMATIC TEST TO CONFIRM INSTALLATION ---${C_RESET}"
-      bash "$SCRIPT_PATH" && echo "TEST WAS SUCCESSFUL." && tail -5 /var/log/tc_smart.log
+      bash "$SCRIPT_PATH" && echo "Test was successful." && tail -5 /var/log/tc_smart.log
       ;;
     2)
       rm -f "$SCRIPT_PATH"
-      crontab -l | grep -v "$SCRIPT_PATH" | crontab -
+      (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" | crontab -)
       log_message "SUCCESS" "TC OPTIMIZATION SCRIPT AND ITS CRON JOB REMOVED."
       ;;
     3) return ;;
     *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}" ;;
   esac
-  read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+  read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_custom_sysctl() {
@@ -2022,7 +2287,7 @@ net.core.default_qdisc=fq_codel
 EOF
                 sysctl -p "$conf_file"
                 log_message "SUCCESS" "CUSTOM SYSCTL SETTINGS APPLIED SUCCESSFULLY."
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             2)
                 if [ -f "$conf_file" ]; then
@@ -2032,7 +2297,7 @@ EOF
                 else
                     log_message "INFO" "CUSTOM SETTINGS FILE NOT FOUND."
                 fi
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             3) return ;;
             *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; sleep 1 ;;
@@ -2042,7 +2307,7 @@ EOF
 manage_tc_qleen_mtu() {
     if [[ -z "$PRIMARY_INTERFACE" ]]; then
         log_message "ERROR" "PRIMARY NETWORK INTERFACE NOT FOUND."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
     
@@ -2055,7 +2320,7 @@ manage_tc_qleen_mtu() {
         echo -e "DETECTED NETWORK INTERFACE: ${B_YELLOW}${PRIMARY_INTERFACE}${N}\n"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "APPLY CAKE PROFILE (TXQUEUELEN 500, MTU 1380)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "APPLY FQ_CODEL PROFILE (TXQUEUELEN 1500, MTU 1380)"
-        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "REMOVE TC SETTINGS AND REVERT TO DEFAULT"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "REMOVE TC SETTINGS AND RESTORE DEFAULTS"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "RETURN"
         echo -e "${B_BLUE}-----------------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
@@ -2096,7 +2361,7 @@ Wants=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c "source $TC_CONFIG_FILE && tc qdisc del dev \\\$INTERFACE root 2>/dev/null; if [ \\\"\\\$TC_PROFILE\\\" = \\\"CAKE\\\" ]; then tc qdisc add dev \\\$INTERFACE root cake; ip link set dev \\\$INTERFACE txqueuelen 500; ip link set dev \\\$INTERFACE mtu 1380; elif [ \\\"\\\$TC_PROFILE\\\" = \\\"FQ_CODEL\\\" ]; then tc qdisc add dev \\\$INTERFACE root fq_codel; ip link set dev \\\$INTERFACE txqueuelen 1500; ip link set dev \\\$INTERFACE mtu 1380; fi"
+ExecStart=/bin/bash -c "source \"$TC_CONFIG_FILE\" && tc qdisc del dev \\\$INTERFACE root 2>/dev/null; if [ \\\"\\\$TC_PROFILE\\\" = \\\"CAKE\\\" ]; then tc qdisc add dev \\\$INTERFACE root cake; ip link set dev \\\$INTERFACE txqueuelen 500; ip link set dev \\\$INTERFACE mtu 1380; elif [ \\\"\\\$TC_PROFILE\\\" = \\\"FQ_CODEL\\\" ]; then tc qdisc add dev \\\$INTERFACE root fq_codel; ip link set dev \\\$INTERFACE txqueuelen 1500; ip link set dev \\\$INTERFACE mtu 1380; fi"
 
 [Install]
 WantedBy=multi-user.target
@@ -2105,7 +2370,7 @@ EOF
                 systemctl enable --now irnet-tc-persistent.service
                 check_service_status "irnet-tc-persistent.service"
 
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             3)
                 log_message "INFO" "REMOVING TC QDISC FROM $PRIMARY_INTERFACE..."
@@ -2118,7 +2383,7 @@ EOF
                 systemctl daemon-reload
 
                 log_message "SUCCESS" "TC SETTINGS AND ITS PERSISTENT SERVICE REMOVED."
-                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
                 ;;
             4) return ;;
             *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; sleep 1 ;;
@@ -2128,15 +2393,15 @@ EOF
 
 run_packet_loss_test() {
     clear
-    echo -e "${B_CYAN}--- PACKET LOSS, PING, AND TRACE TEST (MTR) ---${C_RESET}\n"
+    echo -e "${B_CYAN}--- PACKET LOSS, PING, AND TRACEROUTE TEST (MTR) ---${C_RESET}\n"
     if ! command -v mtr &> /dev/null || ! command -v jq &> /dev/null; then
         log_message "ERROR" "MTR AND JQ TOOLS ARE REQUIRED FOR THIS TEST. PLEASE INSTALL THEM."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
 
     local target_ip
-    echo -e "${B_MAGENTA}PLEASE ENTER THE DESTINATION SERVER IP ADDRESS:${C_RESET}"
+    echo -e "${B_MAGENTA}PLEASE ENTER THE DESTINATION SERVER'S IP ADDRESS:${C_RESET}"
     read -e -r target_ip
 
     if ! is_valid_ip "$target_ip"; then
@@ -2144,15 +2409,15 @@ run_packet_loss_test() {
         return
     fi
     clear
-    echo -e "${B_CYAN}--- PACKET LOSS, PING, AND TRACE TEST (MTR) ---${C_RESET}\n"
-    echo -e "\n${C_YELLOW}RUNNING MTR TEST TO ${target_ip}... (THIS WILL TAKE ABOUT 1 MINUTE)${C_RESET}"
+    echo -e "${B_CYAN}--- PACKET LOSS, PING, AND TRACEROUTE TEST (MTR) ---${C_RESET}\n"
+    echo -e "\n${C_YELLOW}Running MTR test to ${target_ip}... (This will take about 1 minute)${C_RESET}"
     
     local MTR_JSON
     MTR_JSON=$(mtr -j -c 50 --no-dns "$target_ip")
 
     if ! echo "$MTR_JSON" | jq . > /dev/null 2>&1; then
         log_message "ERROR" "PARSING FAILED. MTR DID NOT PRODUCE VALID OUTPUT. PLEASE CHECK YOUR INTERNET CONNECTION."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
 
@@ -2182,30 +2447,30 @@ run_packet_loss_test() {
     final_loss=$(echo "$MTR_JSON" | jq -r '.report.hubs[-1]."Loss%"')
     final_avg_ping=$(echo "$MTR_JSON" | jq -r '.report.hubs[-1].Avg')
 
-    echo -e "${C_WHITE}▪️ PACKET LOSS AT SOURCE (FIRST HOP):${N} ${Y}${first_hop_loss:-0}%${N}"
+    echo -e "${C_WHITE}▪️ PACKET LOSS AT SOURCE (HOP 1):${N} ${Y}${first_hop_loss:-0}%${N}"
     echo -e "${C_WHITE}▪️ PACKET LOSS TO FINAL DESTINATION:${N} ${Y}${final_loss:-0}%${N}"
-    echo -e "${C_WHITE}▪️ AVERAGE PING TO FINAL DESTINATION:${N} ${Y}${final_avg_ping:-0} MS${N}\n"
+    echo -e "${C_WHITE}▪️ AVERAGE PING TO FINAL DESTINATION:${N} ${Y}${final_avg_ping:-0} ms${N}\n"
 
     if (( $(echo "$first_hop_loss > 10" | bc -l) )); then
         echo -e " ${R}❌ RESULT: VERY POOR CONNECTION.${N}"
-        echo -e "   REASON: SEVERE PACKET LOSS AT SOURCE (${first_hop_loss}%) INDICATES A SERIOUS PROBLEM WITH THE SOURCE SERVER'S NETWORK."
-        echo -e "   THIS SERVER IS NOT SUITABLE FOR TUNNELING."
+        echo -e "   REASON: Severe packet loss at the source (${first_hop_loss}%) indicates a serious problem with the origin server's network."
+        echo -e "   This server is not suitable for tunneling at all."
     elif (( $(echo "$final_loss > 5" | bc -l) )); then
         echo -e " ${R}❌ RESULT: VERY POOR CONNECTION.${N}"
-        echo -e "   REASON: HIGH PACKET LOSS AT DESTINATION (${final_loss}%) WILL SEVERELY DISRUPT ANY TYPE OF TUNNEL."
+        echo -e "   REASON: High packet loss at the destination (${final_loss}%) will severely disrupt any type of tunnel."
     elif (( $(echo "$final_loss > 0" | bc -l) )); then
-        echo -e " ${Y}⚠️ RESULT: POOR CONNECTION.${N}"
-        echo -e "   REASON: ANY PACKET LOSS AT DESTINATION (${final_loss}%) CAN CAUSE QUALITY DEGRADATION AND TEMPORARY DROPS."
-        echo -e "   THIS CONNECTION IS NOT RECOMMENDED FOR SENSITIVE TASKS LIKE GAMING OR VIDEO CALLS."
+        echo -e " ${Y}⚠️ RESULT: WEAK CONNECTION.${N}"
+        echo -e "   REASON: Packet loss at the destination (${final_loss}%) can cause quality drops and temporary disconnects."
+        echo -e "   This connection is not recommended for sensitive tasks like gaming or video calls."
     elif (( $(echo "$final_avg_ping > 200" | bc -l) )); then
         echo -e " ${B}🟡 RESULT: ACCEPTABLE, BUT WITH VERY HIGH LATENCY.${N}"
-        echo -e "   PACKET LOSS IS 0%, WHICH IS EXCELLENT, BUT HIGH PING (${final_avg_ping}MS) MAY CAUSE SLOWNESS."
+        echo -e "   Packet loss is 0%, which is excellent, but the high ping (${final_avg_ping}ms) may cause slowness."
     else
         echo -e " ${G}✅ RESULT: GOOD AND STABLE CONNECTION.${N}"
-        echo -e "   PACKET LOSS IS 0% AND PING IS REASONABLE. THIS SERVER HAS GOOD QUALITY FOR TUNNELING."
+        echo -e "   Packet loss is 0% and ping is reasonable. This server has good quality for tunneling."
     fi
 
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 advanced_mirror_test() {
     clear
@@ -2282,8 +2547,10 @@ EOF
             return
         fi
         local selected_mirror_info="${MIRROR_LIST_CACHE[$((rank_choice - 1))]}"
-        local selected_mirror_url=$(echo "$selected_mirror_info" | cut -d'|' -f2)
-        local selected_mirror_name=$(echo "$selected_mirror_info" | cut -d'|' -f3)
+        local selected_mirror_url
+        selected_mirror_url=$(echo "$selected_mirror_info" | cut -d'|' -f2)
+        local selected_mirror_name
+        selected_mirror_name=$(echo "$selected_mirror_info" | cut -d'|' -f3)
         apply_selected_mirror "$selected_mirror_url" "$selected_mirror_name"
     }
 
@@ -2345,7 +2612,7 @@ EOF
 
     echo -e "\n${B_CYAN}--- OPTIONS ---${C_RESET}"
     printf "  ${C_YELLOW}%2d)${C_WHITE} %s (%s)\n" "1" "APPLY FASTEST REPOSITORY" "${best_mirror_name^^}"
-    printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "MANUALLY SELECT FROM LIST"
+    printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "MANUALLY SELECT A REPOSITORY FROM THE LIST"
     printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "RETURN"
     echo -e "${B_BLUE}-----------------------------------------------------${C_RESET}"
     printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
@@ -2357,7 +2624,7 @@ EOF
         3) return ;;
         *) echo -e "${R}INVALID OPTION!${N}" ;;
     esac
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 port_scanner_menu() {
@@ -2396,7 +2663,7 @@ port_scanner_menu() {
             3) return ;;
             *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}" ;;
         esac
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
     done
 }
 show_current_dns_smart() {
@@ -2410,7 +2677,7 @@ show_current_dns_smart() {
     fi
     
     if [ -z "$dns_servers" ]; then
-        echo "  (NOT FOUND)"
+        echo "  (Not Found)"
     else
         echo "$dns_servers" | tr ' ' '\n' | awk '{print "  • " $1}'
     fi
@@ -2460,7 +2727,7 @@ manage_sanction_dns() {
     
     log_message "INFO" "OPERATION COMPLETED. CHECKING NEW DNS SETTINGS..."
     sleep 2; clear; show_current_dns_smart
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_ip_health_check() {
@@ -2483,7 +2750,7 @@ manage_ip_health_check() {
             *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; sleep 1 ;;
         esac
     done
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_ssh_port() {
@@ -2517,10 +2784,10 @@ manage_ssh_port() {
         fi
         systemctl restart "$ssh_service_name"
         check_service_status "$ssh_service_name"
-        echo -e "\n${B_YELLOW}**IMPORTANT:** PLEASE TEST YOUR SSH CONNECTION WITH THE NEW PORT (${new_port}).${C_RESET}"
+        echo -e "\n${B_YELLOW}**IMPORTANT:** PLEASE TEST YOUR SSH CONNECTION USING THE NEW PORT (${new_port}).${C_RESET}"
     fi
     
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 manage_xray_auto_restart() {
@@ -2538,7 +2805,7 @@ manage_xray_auto_restart() {
 
     if [ -z "$xray_service" ]; then
         log_message "ERROR" "NO KNOWN XRAY OR PANEL SERVICE WAS FOUND ON YOUR SERVER."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
     
@@ -2547,7 +2814,7 @@ manage_xray_auto_restart() {
     printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "ADD CRON JOB TO RESTART EVERY 30 MINUTES"
     printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "REMOVE XRAY AUTO-RESTART CRON JOB"
     printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "RETURN"
-    echo -e "${B_BLUE}-----------------------------------${C_RESET}"
+    echo -e "${B_BLUE}------------------------------------------${C_RESET}"
     printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
     read -e -r choice
 
@@ -2561,13 +2828,13 @@ manage_xray_auto_restart() {
             log_message "SUCCESS" "AUTOMATIC RESTART FOR ${xray_service} SET TO EVERY 30 MINUTES."
             ;;
         3)
-            crontab -l | grep -v "systemctl restart ${xray_service}" | crontab -
+            (crontab -l 2>/dev/null | grep -v "systemctl restart ${xray_service}" | crontab -)
             log_message "SUCCESS" "AUTOMATIC RESTART FOR ${xray_service} REMOVED."
             ;;
         4) return ;;
         *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}" ;;
     esac
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 scan_arvan_ranges() {
@@ -2576,7 +2843,7 @@ scan_arvan_ranges() {
     if ! command -v fping &>/dev/null; then
         log_message "ERROR" "FPING TOOL IS REQUIRED FOR THIS SCAN. ATTEMPTING TO INSTALL..."
         if ! install_dependencies; then
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"; return
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"; return
         fi
     fi
 
@@ -2586,27 +2853,27 @@ scan_arvan_ranges() {
         "37.32.19.0/27" "185.215.232.0/22"
     )
 
-    echo -e "${B_YELLOW}THIS OPERATION MAY BE TIME-CONSUMING.${N}"
-    echo -e "THE PING SCAN WILL BE PERFORMED IN SECTIONS.\n"
+    echo -e "${B_YELLOW}This operation might be time-consuming.${N}"
+    echo -e "The ping scan will be performed section by section.\n"
 
     for range in "${arvan_ranges[@]}"; do
         echo -e "${B_CYAN}--- PREPARING TO PING SCAN RANGE: ${range} ---${N}"
         local choice
         while true; do
-            read -p "DO YOU WANT TO START SCANNING THIS RANGE? (Y/N): " -n 1 -r choice
+            read -p "Do you want to start scanning this range? (y/n): " -n 1 -r choice
             echo
             case "$choice" in
                 [Yy]*)
                     log_message "INFO" "PINGING ARVAN RANGE: ${range}"
-                    echo -e "\n${C_YELLOW}PERFORMING PING TEST... (ONLY ACTIVE IPS WILL BE DISPLAYED)${N}"
+                    echo -e "\n${C_YELLOW}Performing ping test... (Only live hosts will be displayed)${N}"
                     fping -a -g "${range}" 2>/dev/null
                     log_message "SUCCESS" "PING SCAN FOR ${range} COMPLETED."
                     break
                     ;;
                 [Nn]*)
                     log_message "INFO" "SKIPPING SCAN FOR RANGE: ${range}"
-                    echo -e "${C_RED}SKIPPED SCANNING THIS RANGE.${N}"
-                    read -p "DO YOU WANT TO EXIT THE SCANNER COMPLETELY? (Y/N): " -n 1 -r exit_choice
+                    echo -e "${C_RED}Scan for this range was skipped.${N}"
+                    read -p "Do you want to exit the scanner completely? (y/n): " -n 1 -r exit_choice
                     echo
                     if [[ "$exit_choice" =~ ^[yY]$ ]]; then
                         return
@@ -2621,7 +2888,7 @@ scan_arvan_ranges() {
         echo -e "${B_BLUE}-------------------------------------------------${N}"
     done
     log_message "SUCCESS" "SCAN OF ALL ARVAN RANGES COMPLETED."
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 scan_warp_endpoints() {
@@ -2630,7 +2897,7 @@ scan_warp_endpoints() {
     if ! command -v ncat &>/dev/null; then
         log_message "WARN" "NCAT TOOL (PART OF NMAP) NOT FOUND. ATTEMPTING TO INSTALL..."
         if ! install_dependencies; then
-            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"; return
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"; return
         fi
     fi
     
@@ -2647,7 +2914,7 @@ scan_warp_endpoints() {
         "[2606:4700:d0::6932:d526:67b7:77ce]:890" "[2606:4700:d1::9eae:b:2754:6ad9]:1018"
     )
 
-    echo -e "${B_YELLOW}SCANNING ${#endpoints[@]} ENDPOINTS... THIS MAY TAKE SOME TIME.${N}\n"
+    echo -e "${B_YELLOW}Scanning ${#endpoints[@]} endpoints... This may take a moment.${N}\n"
     
     printf "%-45s | %-12s | %-10s | %-10s\n" "ENDPOINT" "PING (MS)" "TCP" "UDP"
     printf "%.0s-" {1..85}; echo
@@ -2684,7 +2951,7 @@ scan_warp_endpoints() {
     done
     
     log_message "SUCCESS" "WARP ENDPOINT SCAN COMPLETED."
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 # --- SCRIPT MAIN MENUS (UPDATED) ---
 
@@ -2693,23 +2960,23 @@ manage_network_optimization() {
         clear
         stty sane
         echo -e "${B_CYAN}--- NETWORK & CONNECTION OPTIMIZATION ---${C_RESET}\n"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "MANAGE TCP OPTIMIZERS (BBR, HYBLA, CUBIC)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "TCP OPTIMIZER MANAGEMENT (BBR, HYBLA, CUBIC)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "CUSTOM SYSCTL OPTIMIZER"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "CUSTOM QLEEN & MTU OPTIMIZER (PERSISTENT)"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "FIX WHATSAPP DATE/TIME ISSUE"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "SPEED OPTIMIZATION (TC)"
-        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "6" "ADVANCED NETWORK SUBSTRATE OPTIMIZATION (PERSISTENT)"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "7" "MANAGE AND FIND BEST DNS"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "FIX WHATSAPP DATE ISSUE"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "TC SPEED OPTIMIZATION"
+        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "6" "ADVANCED NETWORK OPTIMIZATION (PERSISTENT)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "7" "MANAGE & FIND BEST DNS"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "8" "FIND FASTEST APT REPOSITORY (ADVANCED)"
-        printf "  ${C_YELLOW}%2d)${B_WHITE} %s\n" "9" "INTER-SERVER PACKET LOSS TEST (MTR)"
-        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "10" "ANTI-SANCTION DNS"
+        printf "  ${C_YELLOW}%2d)${B_WHITE} %s\n" "9" "SERVER-TO-SERVER PACKET LOSS TEST (MTR)"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "10" "ANTI-SANCTION DNS (FOR IRAN)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "11" "RETURN TO MAIN MENU"
         echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"; read -e -r choice
 
         case $choice in
             1) manage_tcp_optimizers ;; 2) manage_custom_sysctl ;; 3) manage_tc_qleen_mtu ;;
-            4) fix_whatsapp_time ;; 5) manage_tc_script ;; 6) run_as_bbr_optimization ;; 
+            4) fix_whatsapp_time ;; 5) manage_tc_script ;; 6) run_advanced_optimization ;; 
             7) manage_dns ;; 8) advanced_mirror_test ;; 9) run_packet_loss_test ;; 
             10) manage_sanction_dns ;; 11) return ;;
             *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; sleep 1 ;;
@@ -2722,20 +2989,21 @@ manage_security() {
         clear
         stty sane
         echo -e "${B_CYAN}--- SECURITY & ACCESS ---${C_RESET}\n"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "MANAGE FIREWALL & PING (UFW)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "FIREWALL & PING MANAGEMENT (UFW)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "MANAGE ROOT USER LOGIN"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "CHANGE SSH PORT"
         printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "4" "CHANGE SERVER PASSWORD"
         printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "5" "ABUSE DEFENDER"
         printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "6" "X-UI PANEL ASSISTANT (MULTI-ADMIN)"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "7" "AUTO-RESTART XRAY"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "7" "AUTO-RESTART XRAY SERVICE"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "8" "MANAGE AUTOMATIC SERVER REBOOT"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "9" "ENABLE/DISABLE IPV6"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "10" "PORT SCANNER"
-        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "11" "SCAN ARVAN CLOUD RANGES"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "12" "IP HEALTH CHECK"
-        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "13" "SCAN WARP ENDPOINTS"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "14" "RETURN TO MAIN MENU"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "11" "ADVANCED WARP SCANNER"
+        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "12" "SCAN ARVAN CLOUD RANGES"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "13" "IP HEALTH CHECK"
+        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "14" "SCAN WARP ENDPOINTS"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "15" "RETURN TO MAIN MENU"
         echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"; read -e -r choice
 
@@ -2743,7 +3011,8 @@ manage_security() {
             1) manage_firewall ;; 2) manage_ssh_root ;; 3) manage_ssh_port ;; 4) change_server_password ;;
             5) manage_abuse_defender ;; 6) manage_xui_assistant ;; 7) manage_xray_auto_restart ;; 
             8) manage_reboot_cron ;; 9) manage_ipv6 ;; 10) port_scanner_menu ;;
-            11) scan_arvan_ranges ;; 12) manage_ip_health_check ;; 13) scan_warp_endpoints ;; 14) return ;;
+            11) manage_advanced_warp_scanner ;; 12) scan_arvan_ranges ;; 13) manage_ip_health_check ;; 
+            14) scan_warp_endpoints ;; 15) return ;;
             *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; sleep 1 ;;
         esac
     done
@@ -2753,15 +3022,15 @@ update_and_install_packages() {
     clear
     log_message "INFO" "--- STARTING UPDATE AND ESSENTIAL PACKAGES INSTALLATION PROCESS ---"
     
-    echo -e "${B_YELLOW}STEP 1: UPDATING SYSTEM PACKAGE LISTS...${N}"
+    echo -e "${B_YELLOW}STEP 1: UPDATING OS PACKAGE LISTS...${N}"
     if ! apt-get update -qq; then
         log_message "ERROR" "FAILED TO UPDATE PACKAGE LISTS. PLEASE CHECK YOUR INTERNET CONNECTION."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return 1
     fi
     log_message "SUCCESS" "PACKAGE LISTS UPDATED SUCCESSFULLY."
     
-    echo -e "\n${B_YELLOW}STEP 2: UPGRADING INSTALLED PACKAGES (THIS MAY TAKE A WHILE)...${N}"
+    echo -e "\n${B_YELLOW}STEP 2: UPGRADING INSTALLED PACKAGES (THIS MAY TAKE SOME TIME)...${N}"
     if ! DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; then
         log_message "WARN" "UPGRADE FAILED FOR SOME PACKAGES. SCRIPT WILL CONTINUE."
     fi
@@ -2775,7 +3044,7 @@ update_and_install_packages() {
     fi
     
     echo -e "\n${B_GREEN}✅ UPDATE AND PACKAGE INSTALLATION PROCESS COMPLETED SUCCESSFULLY.${N}"
-    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${NC}"
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
 
@@ -2790,9 +3059,10 @@ main() {
       clear; show_banner; show_enhanced_system_status
       printf "   ${C_YELLOW}%2d) ${B_CYAN}%s\n" "1" "NETWORK & CONNECTION OPTIMIZATION"
       printf "   ${C_YELLOW}%2d) ${B_CYAN}%s\n" "2" "SECURITY & ACCESS"
-      printf "   ${C_YELLOW}%2d) ${C_WHITE}%s\n" "3" "UPDATE & INSTALL PACKAGES"
+      printf "   ${C_YELLOW}%2d) ${C_WHITE}%s\n" "3" "UPDATE SYSTEM & INSTALL ESSENTIALS"
       printf "   ${C_YELLOW}%2d)${B_GREEN} %s\n" "4" "INSTALL / UPDATE TX-UI PANEL"
-      printf "\n   ${C_YELLOW}%2d) ${C_RED}%s\n" "5" "EXIT"
+      printf "   ${C_YELLOW}%2d)${B_GREEN} %s\n" "5" "INSTALL / UPDATE 3X-UI PANEL"
+      printf "\n   ${C_YELLOW}%2d) ${C_RED}%s\n" "6" "EXIT"
       echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
       printf "%b" "${B_MAGENTA}PLEASE SELECT AN OPTION: ${C_RESET}"
       read -e -r main_choice
@@ -2802,7 +3072,8 @@ main() {
         2) manage_security ;;
         3) update_and_install_packages ;;
         4) manage_txui_panel ;;
-        5) clear; log_message "INFO" "EXITING SCRIPT."; echo -e "\n${B_CYAN}GOODBYE!${C_RESET}\n"; stty sane; exit 0 ;;
+        5) manage_3xui_panel ;;
+        6) clear; log_message "INFO" "EXITING SCRIPT."; echo -e "\n${B_CYAN}GOODBYE!${C_RESET}\n"; stty sane; exit 0 ;;
         *) echo -e "\n${C_RED}INVALID OPTION!${C_RESET}"; read -n 1 -s -r -p "" ;;
       esac
     done
