@@ -9,7 +9,7 @@
     <img src="https://img.shields.io/github/stars/cy33r/IR-NET?style=social" alt="GitHub Stars">
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/61fbfce5-98ad-4cfa-b1a6-1148715c01a9" alt="IR-NET-Logo"/>
+  <img src="https://github.com/user-attachments/assets/520eb82a-8626-4b77-846f-6cf9e9a4c5cf" alt="IR-NET-Logo"/>
 </p>
 
 <h1 align="center">IR-NET - مجموعه ابزار مدیریت سرور اوبونتو</h1>
