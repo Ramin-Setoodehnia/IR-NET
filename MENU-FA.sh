@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Check for root user
+# CHECK FOR ROOT USER
 if [ "$(id -u)" -ne 0 ]; then
   echo "این اسکریپت باید با دسترسی ریشه (ROOT) اجرا شود."
   echo "لطفاً از دستور 'sudo bash MENU-FA.sh' استفاده کنید."
@@ -37,7 +37,7 @@ P=$'\e[1;35m'
 
 readonly LOG_FILE="/var/log/network_optimizer.log"
 readonly BACKUP_DIR="/var/backups/network_optimizer"
-readonly CONFIG_DIR="/etc/irnet" # Directory for persistent configs
+readonly CONFIG_DIR="/etc/irnet" # DIRECTORY FOR PERSISTENT CONFIGS
 readonly TARGET_DNS=("9.9.9.9" "149.112.112.112")
 readonly MIN_MTU=576
 readonly MAX_MTU=9000
@@ -60,7 +60,7 @@ log_message() {
         SUCCESS) color="$C_GREEN" ;;
         *) color="$C_RESET" ;;
     esac
-    # Convert message to uppercase
+    # CONVERT MESSAGE TO UPPERCASE
     local upper_message="${message^^}"
     local log_line="[$timestamp] [$level] $upper_message"
     printf "%s%s%s\n" "$color" "$log_line" "$C_RESET" | tee -a "$LOG_FILE"
@@ -101,13 +101,13 @@ check_service_status() {
     if systemctl is-active --quiet "$service_name"; then
         log_message "SUCCESS" "SERVICE $service_name IS ACTIVE AND RUNNING."
     else
-        log_message "ERROR" "SERVICE $service_name FAILED TO RUN. PLEASE CHECK MANUALLY: systemctl status $service_name"
+        log_message "ERROR" "SERVICE $service_name FAILED TO RUN. PLEASE CHECK MANUALLY: SYSTEMCTL STATUS $service_name"
     fi
 }
 
 handle_interrupt() {
     log_message "WARN" "SCRIPT INTERRUPTED. CLEANING UP..."
-    stty sane # Restore terminal settings on exit
+    stty sane # RESTORE TERMINAL SETTINGS ON EXIT
     local pids
     pids=$(jobs -p 2>/dev/null)
     if [[ -n "$pids" ]]; then
@@ -184,7 +184,7 @@ check_ipv6_status() {
 
 check_ping_status() {
     if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
-        # Check for our specific rule in UFW chain OR the main INPUT chain
+        # CHECK FOR OUR SPECIFIC RULE IN UFW CHAIN OR THE MAIN INPUT CHAIN
         if iptables -C ufw-before-input -p icmp --icmp-type echo-request -j DROP &>/dev/null || \
            iptables -C INPUT -p icmp --icmp-type echo-request -j DROP &>/dev/null || \
            ip6tables -C ufw6-before-input -p icmpv6 --icmpv6-type echo-request -j DROP &>/dev/null || \
@@ -194,7 +194,7 @@ check_ping_status() {
             echo "ALLOWED"
         fi
     else
-        # If UFW is not active, ping is allowed by default
+        # IF UFW IS NOT ACTIVE, PING IS ALLOWED BY DEFAULT
         echo "ALLOWED"
     fi
 }
@@ -208,7 +208,6 @@ is_valid_ip() {
     fi
 }
 # --- SYSTEM STATUS ---
-# [+] REVISED TO FIX DISPLAY AND DETECTION ISSUES
 show_enhanced_system_status() {
     get_visual_length() {
         local clean_string
@@ -216,17 +215,17 @@ show_enhanced_system_status() {
         echo -n "$clean_string" | wc -m
     }
 
-    # --- Start: Parallel Network Checks with Local Fallback ---
+    # --- START: PARALLEL NETWORK CHECKS WITH LOCAL FALLBACK ---
     local TMP_IPV4="/tmp/public_ipv4_$$"
     local TMP_IPV6="/tmp/public_ipv6_$$"
     local TMP_ISP="/tmp/public_isp_$$"
     
-    # Run network checks in the background simultaneously
+    # RUN NETWORK CHECKS IN THE BACKGROUND SIMULTANEOUSLY
     curl -s -4 --connect-timeout 3 ip.sb > "$TMP_IPV4" &
     curl -s -6 --connect-timeout 3 ip.sb > "$TMP_IPV6" &
     curl -s -4 --connect-timeout 3 ip.sb/isp > "$TMP_ISP" &
 
-    # Wait for all background jobs to complete
+    # WAIT FOR ALL BACKGROUND JOBS TO COMPLETE
     wait
     
     local public_ipv4
@@ -236,10 +235,10 @@ show_enhanced_system_status() {
     local provider
     provider=$(cat "$TMP_ISP")
     
-    # Clean up temporary files
+    # CLEAN UP TEMPORARY FILES
     rm -f "$TMP_IPV4" "$TMP_IPV6" "$TMP_ISP"
     
-    # --- Fallback Logic: If curl fails, get IP locally ---
+    # --- FALLBACK LOGIC: IF CURL FAILS, GET IP LOCALLY ---
     if [[ -z "$public_ipv4" ]]; then
         public_ipv4=$(ip -4 addr show "$PRIMARY_INTERFACE" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
         [ -z "$public_ipv4" ] && public_ipv4="N/A"
@@ -251,10 +250,10 @@ show_enhanced_system_status() {
     fi
     
     [ -z "$provider" ] && provider="N/A"
-    # --- End: Fallback Logic ---
+    # --- END: FALLBACK LOGIC ---
 
 
-    # Use a wider cut for CPU model to prevent awkward wrapping
+    # USE A WIDER CUT FOR CPU MODEL TO PREVENT AWKWARD WRAPPING
     local cpu_model
     cpu_model=$(grep "model name" /proc/cpuinfo | head -1 | cut -d':' -f2 | sed 's/^ *//' | cut -c1-45)
     local cpu_cores
@@ -372,7 +371,7 @@ show_enhanced_system_status() {
     printf "${B_BLUE}╚%s╝\n" "$(printf '═%.0s' $(seq 1 $((max_label_len + max_value_width + 5)) ))"
 }
 # #############################################################################
-# --- Network Optimizer Core ---
+# --- NETWORK OPTIMIZER CORE ---
 # #############################################################################
 
 check_internet_connection() {
@@ -405,7 +404,7 @@ wait_for_dpkg_lock() {
             return 1
         fi
         if [[ $((waited % 30)) -eq 0 ]]; then
-            log_message "WARN" "PACKAGE MANAGER LOCKED. WAITING... (${waited}S/${max_wait}S)"
+            log_message "WARN" "PACKAGE MANAGER IS LOCKED. WAITING... (${waited}S/${max_wait}S)"
         fi
         sleep 5
         waited=$((waited + 5))
@@ -467,7 +466,7 @@ suggest_reconnection() {
     printf "\n%s╔════════════════════════════════════════════════════════╗%s\n" "$C_RED" "$C_RESET"
     printf "%s║                    ATTENTION REQUIRED                 ║%s\n" "$C_RED" "$C_RESET"
     printf "%s╚════════════════════════════════════════════════════════╝%s\n\n" "$C_RED" "$C_RESET"
-    log_message "WARN" "ENVIRONMENT ISSUES DETECTED AFTER PACKAGE INSTALLATION."
+    log_message "WARN" "ENVIRONMENTAL ISSUES DETECTED AFTER PACKAGE INSTALLATION."
     printf "%sFOR OPTIMAL PERFORMANCE, PLEASE:%s\n\n" "$C_YELLOW" "$C_RESET"
     printf "%s1. %sPRESS CTRL+C TO EXIT THIS SCRIPT%s\n" "$C_CYAN" "$C_WHITE" "$C_RESET"
     printf "%s2. %sRECONNECT YOUR SSH SESSION%s\n" "$C_CYAN" "$C_WHITE" "$C_RESET"
@@ -489,7 +488,7 @@ suggest_reconnection() {
     log_message "WARN" "CONTINUING DESPITE ENVIRONMENT ISSUES..."
 }
 
-# [+] CONSOLIDATED DEPENDENCY INSTALLER
+# [+] CONSOLIDATED DEPENDENCY INSTALLER (MODIFIED TO INCLUDE NEW TOOLS)
 install_dependencies() {
     log_message "INFO" "CHECKING AND INSTALLING REQUIRED DEPENDENCIES..."
     if ! check_internet_connection; then
@@ -497,7 +496,7 @@ install_dependencies() {
         return 1
     fi
 
-    local deps=("curl" "wget" "socat" "ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq" "bc" "lsb-release" "netcat-openbsd" "nmap" "fping" "uuid-runtime" "iptables-persistent" "python3" "python3-pip" "fail2ban" "chkrootkit" "unzip")
+    local deps=("curl" "wget" "socat" "ethtool" "net-tools" "dnsutils" "mtr-tiny" "iperf3" "jq" "bc" "lsb-release" "netcat-openbsd" "nmap" "fping" "uuid-runtime" "iptables-persistent" "python3" "python3-pip" "fail2ban" "chkrootkit" "unzip" "rkhunter" "lynis" "htop" "btop" "ncdu" "iftop" "git" "certbot" "xtables-addons-common" "geoip-database" "gnupg")
     local missing_deps=()
     
     for dep in "${deps[@]}"; do
@@ -508,6 +507,8 @@ install_dependencies() {
         [[ "$dep" == "netcat-openbsd" ]] && cmd_name="nc"
         [[ "$dep" == "uuid-runtime" ]] && cmd_name="uuidgen"
         [[ "$dep" == "iptables-persistent" ]] && cmd_name="netfilter-persistent"
+        [[ "$dep" == "xtables-addons-common" ]] && cmd_name="xtables-addons-info"
+
 
         if ! command -v "$cmd_name" &>/dev/null; then
             if [[ "$dep" == "netcat-openbsd" ]] && (command -v "ncat" >/dev/null || command -v "netcat" >/dev/null); then
@@ -552,7 +553,7 @@ fix_etc_hosts() {
         return 1
     fi
     if lsattr "$host_path" 2>/dev/null | grep -q 'i'; then
-        log_message "WARN" "FILE $host_path IS IMMUTABLE. MAKING IT MUTABLE..."
+        log_message "WARN" "FILE $host_path IS IMMUTABLE. ATTEMPTING TO MAKE IT MUTABLE..."
         if ! chattr -i "$host_path" 2>/dev/null; then
             log_message "ERROR" "FAILED TO REMOVE IMMUTABLE ATTRIBUTE."
             return 1
@@ -576,7 +577,7 @@ fix_etc_hosts() {
     fi
     return 0
 }
-# [+] FIXED DNS APPLICATION LOGIC
+
 apply_dns_persistent() {
     local dns1="$1"
     local dns2="$2"
@@ -640,7 +641,7 @@ apply_dns_persistent() {
     local current_time
     printf -v current_time '%(%Y-%m-%d %H:%M:%S)T' -1
     if cat > "$dns_file" << EOF
-# Generated by Linux Optimizer Script on $current_time
+# GENERATED BY LINUX OPTIMIZER SCRIPT ON $current_time
 # WARNING: THIS CHANGE MIGHT BE OVERWRITTEN BY YOUR SYSTEM'S NETWORK MANAGER.
 nameserver $dns1
 nameserver $dns2
@@ -654,6 +655,748 @@ EOF
         return 1
     fi
 }
+# ###########################################################################
+# --- NEW FUNCTIONS (ADVANCED & WEB TOOLS) ---
+# ###########################################################################
+
+manage_docker() {
+    _install_docker() {
+        log_message "INFO" "CHECKING AND INSTALLING DOCKER..."
+        if command -v docker &>/dev/null; then
+            log_message "INFO" "DOCKER IS ALREADY INSTALLED."
+            return 0
+        fi
+
+        log_message "INFO" "INSTALLING DOCKER PREREQUISITES (VIA CENTRAL FUNCTION)..."
+        if ! install_dependencies; then
+            log_message "ERROR" "FAILED TO INSTALL DOCKER PREREQUISITES."
+            return 1
+        fi
+
+        log_message "INFO" "ADDING DOCKER'S OFFICIAL GPG KEY..."
+        install -m 0755 -d /etc/apt/keyrings
+        if ! curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc; then
+            log_message "ERROR" "FAILED TO DOWNLOAD DOCKER GPG KEY."
+            return 1
+        fi
+        chmod a+r /etc/apt/keyrings/docker.asc
+
+        log_message "INFO" "SETTING UP DOCKER'S APT REPOSITORY..."
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+          $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+          tee /etc/apt/sources.list.d/docker.list > /dev/null
+        
+        log_message "INFO" "INSTALLING DOCKER ENGINE..."
+        apt-get update -qq
+        if ! apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
+            log_message "ERROR" "FAILED TO INSTALL DOCKER ENGINE PACKAGES."
+            return 1
+        fi
+
+        systemctl enable --now docker
+        check_service_status "docker"
+        log_message "SUCCESS" "DOCKER INSTALLED AND STARTED SUCCESSFULLY."
+        return 0
+    }
+
+    _manage_docker_containers() {
+        while true; do
+            clear
+            echo -e "${B_CYAN}--- مدیریت کانتینرها ---${C_RESET}\n"
+            echo -e "${C_WHITE}لیست کانتینرهای موجود:${C_RESET}"
+            docker ps -a
+            echo -e "\n${B_BLUE}----------------------------------------------------${C_RESET}"
+            printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "اجرای کانتینر (START)"
+            printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "توقف کانتینر (STOP)"
+            printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "ری استارت کانتینر (RESTART)"
+            printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "مشاهده لاگ‌های کانتینر (LOGS)"
+            printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "بازگشت به منوی DOCKER"
+            echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+            printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+            local container_id
+            case $choice in
+                1|2|3)
+                    printf "%b" "${B_MAGENTA}نام یا ID کانتینر مورد نظر را وارد کنید: ${C_RESET}"; read -e -r container_id
+                    if [ -z "$container_id" ]; then
+                        log_message "WARN" "NO CONTAINER ID PROVIDED. ABORTING."
+                        sleep 2; continue
+                    fi
+                    if [ "$choice" -eq 1 ]; then
+                        log_message "INFO" "STARTING CONTAINER: $container_id"
+                        docker start "$container_id"
+                    elif [ "$choice" -eq 2 ]; then
+                        log_message "INFO" "STOPPING CONTAINER: $container_id"
+                        docker stop "$container_id"
+                    elif [ "$choice" -eq 3 ]; then
+                        log_message "INFO" "RESTARTING CONTAINER: $container_id"
+                        docker restart "$container_id"
+                    fi
+                    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                    ;;
+                4)
+                    printf "%b" "${B_MAGENTA}نام یا ID کانتینر مورد نظر را وارد کنید: ${C_RESET}"; read -e -r container_id
+                    if [ -z "$container_id" ]; then
+                        log_message "WARN" "NO CONTAINER ID PROVIDED. ABORTING."
+                        sleep 2; continue
+                    fi
+                    log_message "INFO" "VIEWING LOGS FOR CONTAINER: $container_id (PRESS CTRL+C TO EXIT LOGS)"
+                    ( trap '' INT; docker logs -f "$container_id" )
+                    log_message "INFO" "LOG VIEWING EXITED."
+                    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                    ;;
+                5)
+                    return 0
+                    ;;
+                *)
+                    echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                    ;;
+            esac
+        done
+    }
+
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- نصب و مدیریت DOCKER ---${C_RESET}\n"
+        echo -e "${C_WHITE}این منو ابزارهای لازم برای مدیریت DOCKER و کانتینرهای آن را فراهم می‌کند.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "نصب DOCKER و DOCKER-COMPOSE"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "2" "مدیریت کانتینرها (شروع، توقف، لاگ)"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "3" "پاکسازی سیستم DOCKER (حذف کانتینرها و ایمیج‌های بی‌استفاده)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "بازگشت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1)
+                _install_docker
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            2)
+                if ! command -v docker &>/dev/null; then
+                    log_message "ERROR" "DOCKER IS NOT INSTALLED. PLEASE INSTALL IT FIRST."
+                else
+                    _manage_docker_containers
+                fi
+                ;;
+            3)
+                if ! command -v docker &>/dev/null; then
+                    log_message "ERROR" "DOCKER IS NOT INSTALLED."
+                else
+                    printf "%b" "${C_RED}**هشدار:** این عملیات تمام کانتینرهای متوقف شده، شبکه‌ها و ایمیج‌های بدون استفاده را حذف می‌کند. آیا مطمئن هستید؟ (y/n): ${C_RESET}"
+                    read -e -r confirm
+                    if [[ "$confirm" =~ ^[yY]$ ]]; then
+                        log_message "WARN" "PRUNING DOCKER SYSTEM..."
+                        docker system prune -a -f
+                        log_message "SUCCESS" "DOCKER SYSTEM PRUNED."
+                    else
+                        log_message "INFO" "DOCKER PRUNE CANCELED."
+                    fi
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            4)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                ;;
+        esac
+    done
+}
+manage_geoip_blocking() {
+    local COMMENT_TAG="IRNET-GEOIP-BLOCK"
+
+    _install_geoip_deps() {
+        log_message "INFO" "INSTALLING GEOIP DEPENDENCIES..."
+        if ! install_dependencies; then
+            log_message "ERROR" "FAILED TO INSTALL GEOIP DEPENDENCIES."
+            return 1
+        fi
+        if [ ! -d "/usr/share/xt_geoip" ]; then
+            log_message "ERROR" "GEOIP DATABASE DIRECTORY NOT FOUND AFTER INSTALLATION."
+            echo -e "${R}خطا: پایگاه داده GEOIP پس از نصب یافت نشد. ممکن است این قابلیت توسط سیستم عامل شما پشتیبانی نشود.${N}"
+            return 1
+        fi
+        log_message "SUCCESS" "GEOIP DEPENDENCIES ARE INSTALLED."
+        return 0
+    }
+
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- مسدودسازی بر اساس موقعیت جغرافیایی (GEO-IP) ---${C_RESET}\n"
+        echo -e "${C_WHITE}این ابزار به شما امکان می‌دهد ترافیک ورودی از کشورهای مشخص را مسدود کنید.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "نصب پیش‌نیازها"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "2" "مسدودسازی یک کشور"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "مشاهده کشورهای مسدود شده"
+        printf "  ${C_YELLOW}%2d)${C_GREEN} %s\n" "4" "حذف تمام قوانین مسدودسازی GEO-IP"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "بازگشت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1)
+                _install_geoip_deps
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            2)
+                printf "%b" "${B_MAGENTA}کد دو حرفی کشور مورد نظر را وارد کنید (مثال: CN برای چین، US برای آمریکا): ${C_RESET}"
+                read -e -r country_code
+                if [[ -z "$country_code" || ${#country_code} -ne 2 ]]; then
+                    log_message "ERROR" "INVALID COUNTRY CODE PROVIDED."
+                else
+                    local upper_cc="${country_code^^}"
+                    if ! iptables -C INPUT -m geoip --src-cc "$upper_cc" -m comment --comment "$COMMENT_TAG" -j DROP &>/dev/null; then
+                        log_message "INFO" "BLOCKING COUNTRY: $upper_cc"
+                        iptables -I INPUT 1 -m geoip --src-cc "$upper_cc" -m comment --comment "$COMMENT_TAG" -j DROP
+                        log_message "SUCCESS" "IPTABLES RULE ADDED TO BLOCK $upper_cc."
+                    else
+                        log_message "INFO" "RULE TO BLOCK $upper_cc ALREADY EXISTS. SKIPPING."
+                    fi
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            3)
+                clear
+                echo -e "${B_CYAN}--- لیست قوانین مسدودسازی GEO-IP ---${C_RESET}\n"
+                iptables -L INPUT -v -n | grep "$COMMENT_TAG"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            4)
+                printf "%b" "${C_RED}آیا از حذف تمام قوانین GEO-IP مطمئن هستید؟ (y/n): ${C_RESET}"
+                read -e -r confirm
+                if [[ "$confirm" =~ ^[yY]$ ]]; then
+                    log_message "WARN" "REMOVING ALL GEOIP BLOCK RULES..."
+                    while true; do
+                        local rule_line_num
+                        rule_line_num=$(iptables -L INPUT -v -n --line-numbers | grep "$COMMENT_TAG" | awk '{print $1}' | head -n1)
+                        if [[ -n "$rule_line_num" ]]; then
+                            iptables -D INPUT "$rule_line_num"
+                        else
+                            break
+                        fi
+                    done
+                    log_message "SUCCESS" "ALL GEOIP BLOCK RULES REMOVED."
+                else
+                    log_message "INFO" "GEOIP RULE DELETION CANCELED."
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            5)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                ;;
+        esac
+    done
+}
+
+manage_caddy() {
+    _install_caddy() {
+        log_message "INFO" "STARTING CADDY WEB SERVER INSTALLATION..."
+        if command -v caddy &>/dev/null; then
+            log_message "INFO" "CADDY IS ALREADY INSTALLED."
+            return 0
+        fi
+
+        log_message "INFO" "INSTALLING CADDY PREREQUISITES (VIA CENTRAL FUNCTION)..."
+        if ! install_dependencies; then
+             log_message "ERROR" "FAILED TO INSTALL CADDY PREREQUISITES."
+             return 1
+        fi
+
+        log_message "INFO" "ADDING CADDY'S OFFICIAL GPG KEY..."
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+        
+        log_message "INFO" "SETTING UP CADDY'S APT REPOSITORY..."
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list > /dev/null
+        
+        log_message "INFO" "INSTALLING CADDY..."
+        apt-get update -qq
+        if ! apt-get install -y -qq caddy; then
+            log_message "ERROR" "FAILED TO INSTALL CADDY."
+            return 1
+        fi
+        
+        systemctl enable --now caddy
+        check_service_status "caddy"
+        log_message "SUCCESS" "CADDY INSTALLED AND STARTED SUCCESSFULLY."
+        return 0
+    }
+
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- مدیریت وب سرور CADDY ---${C_RESET}\n"
+        echo -e "${C_WHITE}این منو به شما کمک می‌کند وب سرور CADDY را نصب و برای پنل خود یک REVERSE PROXY با SSL خودکار راه‌اندازی کنید.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "نصب CADDY (با SSL خودکار)"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "2" "ایجاد کانفیگ REVERSE PROXY برای پنل"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "مدیریت سرویس (START/STOP/RESTART)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "مشاهده وضعیت و لاگ‌ها"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "بازگشت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1)
+                _install_caddy
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            2)
+                if ! command -v caddy &>/dev/null; then
+                     log_message "ERROR" "CADDY IS NOT INSTALLED. PLEASE INSTALL IT FIRST."
+                else
+                    printf "%b" "${B_MAGENTA}نام دامنه خود را وارد کنید (مثال: my.domain.com): ${C_RESET}"; read -e -r domain_name
+                    printf "%b" "${B_MAGENTA}پورت پنل خود را وارد کنید (مثال: 54321): ${C_RESET}"; read -e -r panel_port
+                    if [[ -z "$domain_name" || -z "$panel_port" ]]; then
+                        log_message "ERROR" "DOMAIN AND PORT CANNOT BE EMPTY."
+                    else
+                        log_message "INFO" "CREATING CADDYFILE FOR DOMAIN $domain_name"
+                        local caddyfile="/etc/caddy/Caddyfile"
+                        create_backup "$caddyfile"
+                        
+                        local temp_sed_domain
+                        temp_sed_domain=$(echo "$domain_name" | sed 's/[&/\]/\\&/g')
+                        if grep -q "^$temp_sed_domain" "$caddyfile"; then
+                            sed -i -e "/^$temp_sed_domain/,/}/d" "$caddyfile"
+                            log_message "INFO" "REMOVED EXISTING CONFIGURATION FOR $domain_name."
+                        fi
+
+                        tee -a "$caddyfile" > /dev/null <<EOF
+
+$domain_name {
+    reverse_proxy localhost:$panel_port
+}
+EOF
+                        caddy fmt --overwrite "$caddyfile"
+                        log_message "INFO" "RELOADING CADDY SERVICE..."
+                        systemctl reload caddy
+                        log_message "SUCCESS" "CADDY CONFIGURATION APPLIED. CADDY WILL NOW ATTEMPT TO GET AN SSL CERT FOR YOUR DOMAIN."
+                    fi
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            3)
+                printf "%b" "${B_MAGENTA}عملیات مورد نظر را انتخاب کنید (start/stop/restart): ${C_RESET}"; read -e -r action
+                if [[ "$action" == "start" || "$action" == "stop" || "$action" == "restart" ]]; then
+                    systemctl "$action" caddy
+                    check_service_status "caddy"
+                else
+                    log_message "ERROR" "INVALID ACTION."
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            4)
+                (
+                    trap '' INT
+                    clear
+                    echo -e "${B_CYAN}--- وضعیت سرویس CADDY ---${C_RESET}\n"
+                    systemctl status caddy --no-pager
+                    echo -e "\n${B_CYAN}--- 50 خط آخر لاگ CADDY ---${C_RESET}\n"
+                    journalctl -u caddy -n 50 --no-pager
+                    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                )
+                ;;
+            5)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                ;;
+        esac
+    done
+}
+manage_certbot() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- مدیریت گواهی SSL با CERTBOT ---${C_RESET}\n"
+        echo -e "${C_WHITE}این ابزار به شما امکان دریافت و مدیریت گواهی‌های رایگان SSL از LET'S ENCRYPT را می‌دهد.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "نصب CERTBOT"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "دریافت گواهی جدید"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "3" "مشاهده لیست گواهی‌های موجود"
+        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "4" "تمدید اجباری یک گواهی (FORCE RENEW)"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "5" "حذف یک گواهی"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "6" "بازگشت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1)
+                log_message "INFO" "INSTALLING CERTBOT..."
+                install_dependencies
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            2)
+                echo -e "\n${B_CYAN}لطفاً روش دریافت گواهی را انتخاب کنید:${C_RESET}"
+                echo "  1) STANDALONE (وب سرور شما را موقتاً متوقف می‌کند)"
+                echo "  2) WEBROOT (نیاز به مسیر روت وب سرور فعال دارد)"
+                printf "%b" "${B_MAGENTA}انتخاب شما: ${C_RESET}"; read -e -r method_choice
+
+                printf "%b" "${B_MAGENTA}نام دامنه را وارد کنید (مثال: my.domain.com): ${C_RESET}"; read -e -r domain_name
+                if [ -z "$domain_name" ]; then
+                    log_message "ERROR" "DOMAIN NAME CANNOT BE EMPTY."
+                elif [ "$method_choice" -eq 1 ]; then
+                    log_message "INFO" "GETTING NEW CERTIFICATE FOR $domain_name USING STANDALONE METHOD..."
+                    certbot certonly --standalone -d "$domain_name"
+                elif [ "$method_choice" -eq 2 ]; then
+                    printf "%b" "${B_MAGENTA}مسیر کامل WEBROOT را وارد کنید (مثال: /var/www/html): ${C_RESET}"; read -e -r webroot_path
+                    log_message "INFO" "GETTING NEW CERTIFICATE FOR $domain_name USING WEBROOT METHOD..."
+                    certbot certonly --webroot -w "$webroot_path" -d "$domain_name"
+                else
+                    log_message "ERROR" "INVALID SELECTION."
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            3)
+                clear
+                log_message "INFO" "LISTING CERTBOT CERTIFICATES..."
+                certbot certificates
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            4)
+                printf "%b" "${B_MAGENTA}نام دامنه‌ای که می‌خواهید گواهی آن تمدید شود را وارد کنید: ${C_RESET}"; read -e -r domain_to_renew
+                if [ -n "$domain_to_renew" ]; then
+                    log_message "WARN" "FORCE-RENEWING CERTIFICATE FOR $domain_to_renew..."
+                    certbot renew --force-renewal -d "$domain_to_renew"
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            5)
+                printf "%b" "${B_MAGENTA}نام دامنه‌ای که می‌خواهید گواهی آن حذف شود را وارد کنید: ${C_RESET}"; read -e -r domain_to_delete
+                if [ -n "$domain_to_delete" ]; then
+                    log_message "WARN" "DELETING CERTIFICATE FOR $domain_to_delete..."
+                    certbot delete --cert-name "$domain_to_delete"
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            6)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                ;;
+        esac
+    done
+}
+# ###########################################################################
+# --- NEW FUNCTIONS (SECURITY TOOLS) ---
+# ###########################################################################
+
+manage_malware_scanners() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- اسکنرهای بدافزار و روت‌کیت ---${C_RESET}\n"
+        echo -e "${C_WHITE}این منو ابزارهایی برای اسکن سیستم جهت یافتن بدافزارها و روت‌کیت‌های احتمالی ارائه می‌دهد.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "اجرای اسکن با CHKROOTKIT (سریع)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "نصب و اجرای اسکن با RKHUNTER (جامع)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بازگشت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1)
+                clear
+                log_message "INFO" "STARTING CHKROOTKIT SCAN..."
+                echo -e "${C_YELLOW}در حال اجرای اسکنر CHKROOTKIT... این عملیات ممکن است چند دقیقه طول بکشد.${C_RESET}"
+                echo -e "${C_CYAN}برای لغو اسکن و بازگشت به منو، کلیدهای CTRL+C را فشار دهید.${C_RESET}\n"
+                local scan_output
+                scan_output=$( (trap '' INT; chkrootkit) 2>&1 )
+                
+                echo -e "${B_CYAN}--- تحلیل خودکار نتیجه CHKROOTKIT ---${C_RESET}"
+                if echo "$scan_output" | grep -q "INFECTED"; then
+                    echo -e "${R}نتیجه: هشدار! موارد آلوده (INFECTED) یافت شد.${N}"
+                    echo -e "${Y}لطفاً خروجی کامل اسکن را با دقت بررسی کرده و اقدامات لازم را انجام دهید.${N}"
+                else
+                    echo -e "${G}نتیجه: مورد آلوده یا خطرناک مشخصی یافت نشد.${N}"
+                fi
+                log_message "INFO" "CHKROOTKIT SCAN FINISHED OR WAS CANCELED."
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            2)
+                clear
+                if ! command -v rkhunter &>/dev/null; then
+                    log_message "WARN" "RKHUNTER NOT FOUND. ATTEMPTING TO INSTALL..."
+                    install_dependencies
+                fi
+                log_message "INFO" "STARTING RKHUNTER SCAN..."
+                echo -e "${C_YELLOW}در حال اجرای اسکنر RKHUNTER... این عملیات ممکن است بسیار زمان‌بر باشد.${C_RESET}"
+                echo -e "${C_YELLOW}لطفاً تا پایان اسکن و مشاهده گزارش صبور باشید.${C_RESET}"
+                echo -e "${C_CYAN}برای لغو اسکن و بازگشت به منو، کلیدهای CTRL+C را فشار دهید.${C_RESET}\n"
+                
+                (
+                    trap '' INT
+                    rkhunter --check --sk
+                )
+                
+                log_message "INFO" "RKHUNTER SCAN FINISHED OR WAS CANCELED."
+                echo -e "\n${B_CYAN}--- تحلیل خودکار نتیجه RKHUNTER ---${C_RESET}"
+                if grep -q "Warning:" /var/log/rkhunter.log; then
+                    echo -e "${Y}نتیجه: اسکنر یک یا چند هشدار (Warning) ثبت کرده است.${N}"
+                    echo -e "${Y}بسیاری از این هشدارها ممکن است کاذب باشند (False Positive)، اما توصیه می‌شود فایل لاگ را برای بررسی دقیق‌تر مشاهده کنید.${N}"
+                else
+                    echo -e "${G}نتیجه: در بررسی لاگ‌ها، هشدار مشخصی یافت نشد.${N}"
+                fi
+                echo -e "\n${C_GREEN}اسکن RKHUNTER به پایان رسید. برای مشاهده جزئیات لاگ، فایل زیر را بررسی کنید:${C_RESET}"
+                echo -e "${C_WHITE}/var/log/rkhunter.log${C_RESET}"
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            3)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                ;;
+        esac
+    done
+}
+
+manage_lynis_audit() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- ابزار ممیزی امنیتی LYNIS ---${C_RESET}\n"
+        echo -e "${C_WHITE}ابزار LYNIS یک ممیزی امنیتی جامع از سیستم شما انجام داده و پیشنهاداتی برای بهبود امنیت ارائه می‌دهد.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "نصب یا به‌روزرسانی LYNIS"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "2" "اجرای اسکن کامل سیستم"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بازگشت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1)
+                clear
+                log_message "INFO" "INSTALLING/UPDATING LYNIS..."
+                install_dependencies
+                log_message "SUCCESS" "LYNIS INSTALLATION/UPDATE PROCESS COMPLETED."
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            2)
+                clear
+                if ! command -v lynis &>/dev/null; then
+                    log_message "ERROR" "LYNIS IS NOT INSTALLED. PLEASE INSTALL IT FIRST USING OPTION 1."
+                    echo -e "\n${C_RED}خطا: LYNIS نصب نیست. لطفاً ابتدا با استفاده از گزینه ۱ آن را نصب کنید.${N}"
+                else
+                    log_message "INFO" "STARTING LYNIS SYSTEM AUDIT..."
+                    echo -e "${C_YELLOW}در حال اجرای ممیزی امنیتی LYNIS... این عملیات ممکن است چند دقیقه طول بکشد.${C_RESET}"
+                    echo -e "${C_CYAN}برای لغو اسکن و بازگشت به منو، کلیدهای CTRL+C را فشار دهید.${C_RESET}\n"
+                    (
+                        trap '' INT
+                        lynis audit system
+                    )
+                    log_message "INFO" "LYNIS SYSTEM AUDIT FINISHED OR WAS CANCELED."
+                    echo -e "\n${C_GREEN}اسکن LYNIS به پایان رسید. گزارش‌ها و پیشنهادات در خروجی بالا نمایش داده شده است.${C_RESET}"
+                    echo -e "${C_WHITE}جزئیات کامل در فایل /var/log/lynis.log ذخیره شده است.${C_RESET}"
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            3)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                ;;
+        esac
+    done
+}
+# ###########################################################################
+# --- NEW FUNCTIONS (MONITORING & DIAGNOSTICS) ---
+# ###########################################################################
+
+manage_system_monitors() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- مانیتورینگ پیشرفته منابع سیستم ---${C_RESET}\n"
+        echo -e "${C_WHITE}این ابزارها به شما امکان مشاهده زنده و دقیق پردازنده، حافظه و فرآیندهای در حال اجرا را می‌دهند.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "1" "اجرای BTOP (پیشرفته و گرافیکی)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "اجرای HTOP (کلاسیک و سبک)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بازگشت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1)
+                clear
+                if ! command -v btop &>/dev/null; then
+                    log_message "WARN" "BTOP NOT FOUND. ATTEMPTING TO INSTALL..."
+                    install_dependencies
+                    if ! command -v btop &>/dev/null; then
+                        log_message "ERROR" "BTOP INSTALLATION FAILED. PLEASE CHECK APT LOGS. IT MAY NOT BE SUPPORTED ON YOUR OS."
+                        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                        continue
+                    fi
+                fi
+                log_message "INFO" "LAUNCHING BTOP SYSTEM MONITOR..."
+                echo -e "${C_WHITE}در حال اجرای مانیتور BTOP...${C_RESET}"
+                echo -e "${B_YELLOW}نکته: BTOP به ترمینال مدرن نیاز دارد. در صورت مشاهده خطاهای نمایشی، از HTOP استفاده کنید.${C_RESET}"
+                echo -e "${C_CYAN}برای خروج از برنامه و بازگشت به منو، کلید 'q' را فشار دهید.${C_RESET}\n"
+                sleep 2
+                btop
+                log_message "INFO" "BTOP SESSION FINISHED."
+                ;;
+            2)
+                clear
+                if ! command -v htop &>/dev/null; then
+                    log_message "WARN" "HTOP NOT FOUND. ATTEMPTING TO INSTALL..."
+                    install_dependencies
+                     if ! command -v htop &>/dev/null; then
+                        log_message "ERROR" "HTOP INSTALLATION FAILED. PLEASE CHECK APT LOGS."
+                        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                        continue
+                    fi
+                fi
+                log_message "INFO" "LAUNCHING HTOP SYSTEM MONITOR..."
+                echo -e "${C_WHITE}در حال اجرای مانیتور HTOP...${C_RESET}"
+                echo -e "${C_CYAN}برای خروج از برنامه و بازگشت به منو، کلید 'q' را فشار دهید.${C_RESET}\n"
+                sleep 2
+                htop
+                log_message "INFO" "HTOP SESSION FINISHED."
+                ;;
+            3)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                ;;
+        esac
+    done
+}
+
+manage_disk_analyzer() {
+    clear
+    if ! command -v ncdu &>/dev/null; then
+        log_message "WARN" "NCDU NOT FOUND. ATTEMPTING TO INSTALL..."
+        install_dependencies
+        if ! command -v ncdu &>/dev/null; then
+            log_message "ERROR" "NCDU INSTALLATION FAILED. PLEASE CHECK APT LOGS."
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+            return
+        fi
+    fi
+    log_message "INFO" "STARTING NCDU DISK USAGE ANALYZER..."
+    echo -e "${B_CYAN}--- تحلیلگر فضای دیسک (NCDU) ---${C_RESET}\n"
+    echo -e "${C_YELLOW}در حال اسکن فضای دیسک از مسیر روت (/) ... این عملیات ممکن است کمی طول بکشد.${C_RESET}"
+    echo -e "${C_WHITE}پس از نمایش، می‌توانید با کلیدهای جهت‌نما در پوشه‌ها حرکت کنید.${C_RESET}"
+    echo -e "${C_CYAN}برای خروج از برنامه و بازگشت به منو، کلید 'q' را فشار دهید.${C_RESET}\n"
+    sleep 2
+    ncdu /
+    log_message "SUCCESS" "NCDU SESSION FINISHED."
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+}
+
+manage_network_traffic() {
+    clear
+    if ! command -v iftop &>/dev/null; then
+        log_message "WARN" "IFTOP NOT FOUND. ATTEMPTING TO INSTALL..."
+        install_dependencies
+        if ! command -v iftop &>/dev/null; then
+            log_message "ERROR" "IFTOP INSTALLATION FAILED. PLEASE CHECK APT LOGS."
+            read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+            return
+        fi
+    fi
+    if [[ -z "$PRIMARY_INTERFACE" ]]; then
+        log_message "ERROR" "PRIMARY NETWORK INTERFACE NOT FOUND."
+        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+        return
+    fi
+    log_message "INFO" "LAUNCHING IFTOP ON INTERFACE $PRIMARY_INTERFACE..."
+    echo -e "${B_CYAN}--- مشاهده زنده ترافیک شبکه (IFTOP) ---${C_RESET}\n"
+    echo -e "${C_WHITE}در حال نمایش ترافیک بر روی کارت شبکه: ${B_YELLOW}${PRIMARY_INTERFACE}${C_RESET}"
+    echo -e "${C_CYAN}برای خروج از برنامه و بازگشت به منو، کلید 'q' را فشار دهید.${C_RESET}\n"
+    sleep 2
+    iftop -i "$PRIMARY_INTERFACE"
+    log_message "SUCCESS" "IFTOP SESSION FINISHED."
+}
+
+# ###########################################################################
+# --- NEW FUNCTIONS (SYSTEM & UTILITY TOOLS) ---
+# ###########################################################################
+
+manage_swap() {
+    while true; do
+        clear
+        echo -e "${B_CYAN}--- مدیریت حافظه SWAP ---${C_RESET}\n"
+        echo -e "${C_WHITE}حافظه SWAP به عنوان یک حافظه مجازی روی دیسک عمل کرده و در زمان کمبود RAM به پایداری سیستم کمک می‌کند.${C_RESET}\n"
+        echo -e "${C_WHITE}وضعیت فعلی SWAP:${C_RESET}"
+        swapon --show
+        free -h | grep -i "SWAP"
+        echo -e "\n${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "ایجاد فایل SWAP"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "2" "حذف فایل SWAP"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بازگشت"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1)
+                printf "%b" "${B_MAGENTA}حجم فایل SWAP را به گیگابایت وارد کنید (مثال: 2): ${C_RESET}"
+                read -e -r swap_size
+                if ! [[ "$swap_size" =~ ^[0-9]+$ ]] || [ "$swap_size" -eq 0 ]; then
+                    log_message "ERROR" "INVALID SWAP SIZE."
+                    echo -e "\n${C_RED}مقدار وارد شده نامعتبر است.${N}"
+                else
+                    log_message "INFO" "CREATING A ${swap_size}GB SWAP FILE..."
+                    fallocate -l "${swap_size}G" /swapfile
+                    chmod 600 /swapfile
+                    mkswap /swapfile
+                    swapon /swapfile
+                    if ! grep -q "/swapfile" /etc/fstab; then
+                        echo '/swapfile none swap sw 0 0' >> /etc/fstab
+                    fi
+                    log_message "SUCCESS" "${swap_size}GB SWAP FILE CREATED AND ENABLED."
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            2)
+                if [ -f /swapfile ]; then
+                    log_message "WARN" "DELETING SWAP FILE..."
+                    swapoff /swapfile
+                    sed -i '\|/swapfile|d' /etc/fstab
+                    rm -f /swapfile
+                    log_message "SUCCESS" "SWAP FILE DELETED SUCCESSFULLY."
+                else
+                    log_message "INFO" "NO SWAP FILE FOUND TO DELETE."
+                    echo -e "\n${C_YELLOW}فایل SWAP ای برای حذف یافت نشد.${N}"
+                fi
+                read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+                ;;
+            3)
+                return
+                ;;
+            *)
+                echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1
+                ;;
+        esac
+    done
+}
+
+manage_system_cleanup() {
+    clear
+    log_message "INFO" "STARTING SYSTEM CLEANUP PROCESS..."
+    echo -e "${B_CYAN}--- پاکسازی سیستم ---${C_RESET}\n"
+    echo -e "${C_WHITE}این عملیات فایل‌های کش APT و پکیج‌های غیرضروری را برای آزاد کردن فضای دیسک حذف می‌کند.${C_RESET}\n"
+    
+    echo -e "${C_YELLOW}وضعیت دیسک قبل از پاکسازی:${C_RESET}"
+    df -h / | tail -n 1
+    
+    echo -e "\n${C_YELLOW}در حال حذف پکیج‌های غیرضروری و فایل‌های کش APT...${C_RESET}"
+    
+    log_message "INFO" "RUNNING APT CLEAN..."
+    apt-get clean > /dev/null 2>&1
+    
+    log_message "INFO" "RUNNING APT AUTOREMOVE..."
+    apt-get autoremove -y --purge > /dev/null 2>&1
+    
+    log_message "SUCCESS" "SYSTEM CLEANUP COMPLETED."
+    echo -e "\n${C_GREEN}✅ پاکسازی با موفقیت انجام شد.${C_RESET}"
+
+    echo -e "\n${C_YELLOW}وضعیت دیسک بعد از پاکسازی:${C_RESET}"
+    df -h / | tail -n 1
+
+    read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
+}
+# #############################################################################
+# --- MAIN OPTIMIZATION FUNCTIONS (NOW MODIFIED AND IMPROVED) ---
+# #############################################################################
 
 gather_system_info() {
     log_message "INFO" "GATHERING SYSTEM INFORMATION..."
@@ -661,7 +1404,7 @@ gather_system_info() {
     cpu_cores=$(nproc 2>/dev/null | head -1)
     cpu_cores=$(printf '%s' "$cpu_cores" | tr -cd '0-9')
     if [[ -z "$cpu_cores" ]] || ! [[ "$cpu_cores" =~ ^[0-9]+$ ]] || [[ "$cpu_cores" -eq 0 ]]; then
-        log_message "WARN" "CPU DETECTION FAILED. USING FALLBACK VALUE."
+        log_message "WARN" "CPU CORE DETECTION FAILED. USING FALLBACK VALUE."
         cpu_cores=1
     fi
     total_ram=$(awk '/MemTotal:/ {print int($2/1024); exit}' /proc/meminfo 2>/dev/null | head -1)
@@ -712,7 +1455,7 @@ optimize_network() {
     local current_time
     printf -v current_time '%(%Y-%m-%d %H:%M:%S)T' -1
     cat > "$sysctl_conf" << EOF
-# Network optimizations added on $current_time
+# NETWORK OPTIMIZATIONS ADDED ON $current_time
 net.core.netdev_max_backlog = $SYSTEM_OPTIMAL_BACKLOG
 net.core.rmem_max = $max_mem
 net.core.wmem_max = $max_mem
@@ -759,7 +1502,6 @@ EOF
     fi
     return 0
 }
-
 find_best_mtu() {
     local interface="$1"
     local target_ip="8.8.8.8"
@@ -836,7 +1578,7 @@ find_best_mtu() {
                 log_message "SUCCESS" "MTU SUCCESSFULLY SET TO $optimal_mtu."
                 log_message "INFO" "MAKING MTU SETTING PERSISTENT ACROSS REBOOTS..."
                 cat > "$CONFIG_DIR/mtu.conf" << EOF
-# Optimal MTU configuration saved by script
+# OPTIMAL MTU CONFIGURATION SAVED BY SCRIPT
 INTERFACE=$interface
 OPTIMAL_MTU=$optimal_mtu
 EOF
@@ -1013,8 +1755,8 @@ intelligent_optimize() {
 show_as_bbr_menu() {
     while true; do
         clear
-        echo -e "${B_CYAN}--- منوی بهینه‌سازی بستر شبکه ---${C_RESET}\n"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "اعمال بهینه‌سازی هوشمند (پیشنهادی)"
+        echo -e "${B_CYAN}--- منوی بهینه سازی بستر شبکه ---${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "اعمال بهینه سازی هوشمند (پیشنهادی)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "بازگردانی به تنظیمات پیش‌فرض"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بازگشت به منوی اصلی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
@@ -1049,7 +1791,7 @@ run_as_bbr_optimization() {
 manage_dns() {
     clear
     if ! command -v fping &>/dev/null; then
-        log_message "WARN" "FPING' TOOL NOT FOUND. ATTEMPTING TO INSTALL AUTOMATICALLY..."
+        log_message "WARN" "FPING TOOL NOT FOUND. ATTEMPTING TO INSTALL AUTOMATICALLY..."
         if ! install_dependencies; then
             log_message "ERROR" "AUTOMATIC INSTALLATION OF 'FPING' FAILED."
             read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
@@ -1121,7 +1863,7 @@ manage_dns() {
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "یافتن و تنظیم بهترین DNS ایران"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "یافتن و تنظیم بهترین DNS جهانی"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "مشاهده DNS فعال سیستم"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "بازگشت به منوی بهینه‌سازی"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "بازگشت به منوی بهینه سازی"
         echo -e "${B_BLUE}-----------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
         read -e -r choice
@@ -1280,7 +2022,7 @@ change_server_password() {
     read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 # ###########################################################################
-# --- TCP Optimizers and Panel Management ---
+# --- TCP OPTIMIZERS AND PANEL MANAGEMENT ---
 # ###########################################################################
 
 remove_tcp_optimizers() {
@@ -1294,7 +2036,7 @@ apply_bbr_plus() {
     remove_tcp_optimizers
     log_message "INFO" "APPLYING BBR PLUS OPTIMIZATION PROFILE..."
     cat > /etc/sysctl.d/99-custom-optimizer.conf << EOF
-# BBR Plus Profile by IRNET
+# BBR PLUS PROFILE BY IRNET
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.ipv4.tcp_fastopen=3
@@ -1315,7 +2057,7 @@ apply_bbr_v2() {
     remove_tcp_optimizers
     log_message "INFO" "APPLYING BBRV2 OPTIMIZATION PROFILE..."
     cat > /etc/sysctl.d/99-custom-optimizer.conf << EOF
-# BBRv2 Profile by IRNET
+# BBRV2 PROFILE BY IRNET
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.ipv4.tcp_ecn=1
@@ -1347,7 +2089,7 @@ apply_hybla_plus() {
     remove_tcp_optimizers
     log_message "INFO" "APPLYING HYBLA PLUS OPTIMIZATION PROFILE..."
     cat > /etc/sysctl.d/99-custom-optimizer.conf << EOF
-# HYBLA Plus Profile by IRNET
+# HYBLA PLUS PROFILE BY IRNET
 net.core.default_qdisc=fq_codel
 net.ipv4.tcp_congestion_control=hybla
 net.ipv4.tcp_fastopen=3
@@ -1363,7 +2105,7 @@ apply_cubic_unstable() {
     remove_tcp_optimizers
     log_message "INFO" "APPLYING CUBIC PROFILE FOR UNSTABLE NETWORKS..."
     cat > /etc/sysctl.d/99-custom-optimizer.conf << EOF
-# CUBIC for Unstable Networks Profile by IRNET
+# CUBIC FOR UNSTABLE NETWORKS PROFILE BY IRNET
 net.core.default_qdisc=codel
 net.ipv4.tcp_congestion_control=cubic
 net.ipv4.ip_local_port_range = 32768 32818
@@ -1374,7 +2116,7 @@ EOF
 manage_tcp_optimizers() {
     while true; do
         clear
-        echo -e "${B_CYAN}--- مدیریت بهینه‌سازهای TCP ---${C_RESET}\n"
+        echo -e "${B_CYAN}--- مدیریت بهینه سازهای TCP ---${C_RESET}\n"
         local current_qdisc
         current_qdisc=$(sysctl -n net.core.default_qdisc)
         local current_tcp_algo
@@ -1385,7 +2127,7 @@ manage_tcp_optimizers() {
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "نصب بهینه ساز BBRV2"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "نصب بهینه ساز HYBLA PLUS"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "نصب بهینه ساز CUBIC (مخصوص شبکه ناپایدار)"
-        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "5" "حذف تمام بهینه‌سازها و بازگشت به پیشفرض کرنل"
+        printf "  ${C_YELLOW}%2d)${C_RED}   %s\n" "5" "حذف تمام بهینه سازها و بازگشت به پیشفرض کرنل"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "6" "بازگشت به منوی قبلی"
         echo -e "${B_BLUE}-----------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
@@ -1464,11 +2206,12 @@ manage_txui_panel() {
         return
     fi
 
-    cd /root/x-ui
+    # IMPROVED: SAFE CD COMMAND
+    cd /root/x-ui || { log_message "ERROR" "COULD NOT CHANGE TO /root/x-ui DIRECTORY. INSTALLATION FAILED."; return 1; }
+    
     if [ ! -f "x-ui.sh" ]; then
         log_message "ERROR" "INSTALLATION SCRIPT 'x-ui.sh' NOT FOUND IN EXTRACTED FILES."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
-        return
+        return 1
     fi
 
     log_message "INFO" "EXECUTING THE PANEL'S OWN INSTALLATION SCRIPT..."
@@ -1483,7 +2226,7 @@ manage_txui_panel() {
 }
 
 # ###########################################################################
-# --- 3X-UI, WhatsApp Fix, and Other Utilities ---
+# --- 3X-UI, WHATSAPP FIX, AND OTHER UTILITIES ---
 # ###########################################################################
 
 manage_3xui_panel() {
@@ -1503,7 +2246,7 @@ manage_3xui_panel() {
         return
     fi
 
-    # Detect architecture
+    # DETECT ARCHITECTURE
     local ARCH
     ARCH=$(uname -m)
     local XUI_ARCH
@@ -1523,7 +2266,7 @@ manage_3xui_panel() {
     local install_success=false
 
     if [ -f "$archive_path" ]; then
-        # --- Manual/Offline Installation (Improved) ---
+        # --- MANUAL/OFFLINE INSTALLATION (IMPROVED) ---
         log_message "INFO" "DETECTED LOCAL INSTALLATION FILE: ${archive_path}"
         log_message "INFO" "PROCEEDING WITH ROBUST (OFFLINE) INSTALLATION..."
         
@@ -1537,21 +2280,23 @@ manage_3xui_panel() {
                 log_message "ERROR" "COULD NOT FIND /root/x-ui DIRECTORY AFTER EXTRACTION."
             else
                 log_message "INFO" "ENTERING /root/x-ui AND RUNNING THE PANEL'S OWN INSTALLER..."
-                cd /root/x-ui
+                # IMPROVED: SAFE CD COMMAND
+                cd /root/x-ui || { log_message "ERROR" "COULD NOT CHANGE TO /root/x-ui DIRECTORY. OFFLINE INSTALLATION FAILED."; return 1; }
+                
                 if ./x-ui.sh install; then
                     log_message "SUCCESS" "3X-UI PANEL INSTALLED SUCCESSFULLY FROM LOCAL FILE."
                     install_success=true
                 else
                     log_message "ERROR" "THE PANEL'S OWN INSTALLER SCRIPT FAILED."
                 fi
-                cd /root/ # Return to a known directory
+                cd /root/ # RETURN TO A KNOWN DIRECTORY
             fi
         else
             log_message "ERROR" "FAILED TO EXTRACT THE ARCHIVE."
         fi
 
     else
-        # --- Automatic/Online Installation ---
+        # --- AUTOMATIC/ONLINE INSTALLATION ---
         log_message "INFO" "LOCAL INSTALLATION FILE NOT FOUND."
         log_message "INFO" "PROCEEDING WITH AUTOMATIC (ONLINE) INSTALLATION..."
         if ! check_internet_connection; then
@@ -1589,12 +2334,12 @@ fix_whatsapp_time() {
     read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 # ###########################################################################
-# --- NEW: Advanced Warp Scanner (Final Corrected Version) ---
+# --- NEW: ADVANCED WARP SCANNER ---
 # ###########################################################################
 manage_advanced_warp_scanner() {
     local SCANNER_DIR="/usr/local/bin"
     local SCANNER_BIN="${SCANNER_DIR}/warp-scanner"
-    local SCANNER_XRAY="${SCANNER_DIR}/xray" # The scanner might place an xray core here
+    local SCANNER_XRAY="${SCANNER_DIR}/xray" # THE SCANNER MIGHT PLACE AN XRAY CORE HERE
     local SCANNER_REPO="bia-pain-bache/BPB-Warp-Scanner"
 
     _install_warp_scanner() {
@@ -1616,13 +2361,11 @@ manage_advanced_warp_scanner() {
             ;;
         esac
 
-        # Using the specific, working version link you provided
         local DOWNLOAD_URL="https://github.com/${SCANNER_REPO}/releases/download/v1.1.1/BPB-Warp-Scanner-linux-${ARCH}.tar.gz"
         local TEMP_FILE="/tmp/warp-scanner.tar.gz"
         
         log_message "INFO" "DOWNLOADING STABLE SCANNER VERSION FROM ${DOWNLOAD_URL}"
         
-        # Robust download logic
         if ! curl -L --fail --connect-timeout 20 -o "$TEMP_FILE" "$DOWNLOAD_URL"; then
             log_message "WARN" "CURL FAILED. TRYING WGET AS A FALLBACK..."
             rm -f "$TEMP_FILE"
@@ -1641,7 +2384,6 @@ manage_advanced_warp_scanner() {
 
         log_message "SUCCESS" "DOWNLOAD COMPLETED. EXTRACTING..."
         
-        # Extract using tar, targeting a specific directory
         mkdir -p "/tmp/warp-scanner-extracted"
         if ! tar -zxvf "$TEMP_FILE" -C "/tmp/warp-scanner-extracted"; then
             log_message "ERROR" "FAILED TO EXTRACT THE .TAR.GZ ARCHIVE."
@@ -1649,7 +2391,6 @@ manage_advanced_warp_scanner() {
             return 1
         fi
         
-        # The binary is directly inside after extraction
         local extracted_bin="/tmp/warp-scanner-extracted/BPB-Warp-Scanner"
         if [ ! -f "$extracted_bin" ]; then
              log_message "ERROR" "SCANNER BINARY NOT FOUND IN THE ARCHIVE."
@@ -1657,7 +2398,6 @@ manage_advanced_warp_scanner() {
              return 1
         fi
 
-        # Move the binary to the final destination
         mv "$extracted_bin" "$SCANNER_BIN"
         chmod +x "$SCANNER_BIN"
         
@@ -1705,7 +2445,10 @@ manage_advanced_warp_scanner() {
                     clear
                     log_message "INFO" "EXECUTING WARP SCANNER..."
                     echo -e "${B_YELLOW}در حال اجرای اسکنر... برای بازگشت، از منوی خود اسکنر خارج شوید.${N}\n"
-                    "$SCANNER_BIN"
+                    (
+                        trap '' INT
+                        "$SCANNER_BIN"
+                    )
                 else
                     log_message "WARN" "SCANNER IS NOT INSTALLED. PLEASE INSTALL IT FIRST."
                 fi
@@ -1719,9 +2462,8 @@ manage_advanced_warp_scanner() {
         read -n 1 -s -r -p $'\n'"${R}برای ادامه یک کلید را فشار دهید...${N}"
     done
 }
-
 # ###########################################################################
-# --- Final Security Tools & Network Utilities ---
+# --- FINAL SECURITY TOOLS & NETWORK UTILITIES ---
 # ###########################################################################
 
 manage_firewall() {
@@ -1798,7 +2540,7 @@ manage_firewall() {
                     while ip6tables -D ufw6-before-input "${ICMP_V6_PARAMS[@]}" -j DROP &>/dev/null; do :; done
                     iptables -C ufw-before-input "${ICMP_V4_PARAMS[@]}" -j ACCEPT &>/dev/null || iptables -I ufw-before-input 1 "${ICMP_V4_PARAMS[@]}" -j ACCEPT
                     ip6tables -C ufw6-before-input "${ICMP_V6_PARAMS[@]}" -j ACCEPT &>/dev/null || ip6tables -I ufw6-before-input 1 "${ICMP_V6_PARAMS[@]}" -j ACCEPT
-                    log_message "SUCCESS" "Ping has been ENABLED."
+                    log_message "SUCCESS" "PING HAS BEEN ENABLED."
                     ;;
                 2) # DISABLE PING
                     log_message "INFO" "DISABLING PING..."
@@ -1812,7 +2554,7 @@ manage_firewall() {
                     while ip6tables -D ufw6-before-input "${ICMP_V6_PARAMS[@]}" -j ACCEPT &>/dev/null; do :; done
                     iptables -C ufw-before-input "${ICMP_V4_PARAMS[@]}" -j DROP &>/dev/null || iptables -I ufw-before-input 1 "${ICMP_V4_PARAMS[@]}" -j DROP
                     ip6tables -C ufw6-before-input "${ICMP_V6_PARAMS[@]}" -j DROP &>/dev/null || ip6tables -I ufw6-before-input 1 "${ICMP_V6_PARAMS[@]}" -j DROP
-                    log_message "SUCCESS" "Ping has been DISABLED."
+                    log_message "SUCCESS" "PING HAS BEEN DISABLED."
                     ;;
                 3) return ;;
                 *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
@@ -1924,9 +2666,9 @@ manage_firewall() {
                         if [[ -n "$port" ]]; then
                            ufw allow "$port" > /dev/null
                            if [[ "$port" == "$ssh_port" ]]; then
-                                echo "  - Port ${port} (SSH) ${G}ADDED${N}"
+                                echo "  - PORT ${port} (SSH) ${G}ADDED${N}"
                            else
-                                echo "  - Port ${port} ${G}ADDED${N}"
+                                echo "  - PORT ${port} ${G}ADDED${N}"
                            fi
                         fi
                     done
@@ -1978,7 +2720,7 @@ manage_abuse_defender() {
         read -e -r choice
 
         case $choice in
-            1) # Block Abuse IP-Ranges
+            1) # BLOCK ABUSE IP-RANGES
                 log_message "INFO" "BLOCKING ABUSE IP RANGES VIA UFW..."
                 local add_count=0
                 for ip in "${ABUSE_IPS[@]}"; do
@@ -1991,7 +2733,7 @@ manage_abuse_defender() {
                 echo -e "\n${G}عملیات مسدودسازی با موفقیت انجام شد. $add_count قانون جدید به UFW اضافه شد.${N}"
                 ufw reload >/dev/null
                 ;;
-            2) # Whitelist an IP/IP-Ranges manually
+            2) # WHITELIST AN IP/IP-RANGES MANUALLY
                 printf "\n%b" "${B_MAGENTA}آی‌پی یا رنج مورد نظر برای افزودن به لیست سفید را وارد کنید: ${C_RESET}"
                 read -e -r ip_to_whitelist
                 if [[ -n "$ip_to_whitelist" ]]; then
@@ -2003,7 +2745,7 @@ manage_abuse_defender() {
                     log_message "WARN" "NO IP PROVIDED."
                 fi
                 ;;
-            3) # Block an IP/IP-Ranges manually
+            3) # BLOCK AN IP/IP-RANGES MANUALLY
                 printf "\n%b" "${B_MAGENTA}آی‌پی یا رنج مورد نظر برای مسدودسازی دستی را وارد کنید: ${C_RESET}"
                 read -e -r ip_to_block
                 if [[ -n "$ip_to_block" ]]; then
@@ -2015,13 +2757,13 @@ manage_abuse_defender() {
                     log_message "WARN" "NO IP PROVIDED."
                 fi
                 ;;
-            4) # View Rules
+            4) # VIEW RULES
                 clear
                 echo -e "${B_CYAN}--- لیست قوانین فعلی فایروال (UFW) ---${C_RESET}\n"
                 ufw status numbered
                 echo -e "\n${C_YELLOW}قوانین اضافه شده توسط این اسکریپت دارای کامنت '${COMMENT_TAG}' هستند.${N}"
                 ;;
-            5) # Clear all rules (Unblock Abuse IPs)
+            5) # CLEAR ALL RULES (UNBLOCK ABUSE IPS)
                 log_message "INFO" "REMOVING ALL ABUSE DEFENDER RULES FROM UFW..."
                 local rules_to_delete
                 mapfile -t rules_to_delete < <(ufw status numbered | grep "$COMMENT_TAG" | awk -F'[][]' '{print $2}' | sort -rn)
@@ -2039,7 +2781,7 @@ manage_abuse_defender() {
                     ufw reload >/dev/null
                 fi
                 ;;
-            6) # Exit
+            6) # EXIT
                 return
                 ;;
             *)
@@ -2052,14 +2794,12 @@ manage_abuse_defender() {
 }
 manage_xui_assistant() {
     local ASSISTANT_DIR="/root/xui-assistant"
-    # The real executable is menu.sh
     local EXECUTABLE_NAME="menu.sh"
     local SYMLINK_PATH="/usr/local/bin/x-ui-assistant"
 
     _install_xui_assistant() {
         log_message "INFO" "STARTING X-UI ASSISTANT INSTALLATION..."
 
-        # Check dependencies
         local deps=("git" "python3" "python3-pip")
         local missing_deps=()
         for dep in "${deps[@]}"; do
@@ -2077,7 +2817,6 @@ manage_xui_assistant() {
             fi
         fi
 
-        # Clone the repository
         local GIT_REPO_URL="https://github.com/dev-ir/xui-assistant.git"
         log_message "INFO" "CLONING REPOSITORY FROM: $GIT_REPO_URL"
         rm -rf "$ASSISTANT_DIR"
@@ -2086,14 +2825,12 @@ manage_xui_assistant() {
             return 1
         fi
 
-        # Install Python requirements
         log_message "INFO" "INSTALLING PYTHON REQUIREMENTS..."
         if ! python3 -m pip install requests prettytable pycryptodome; then
             log_message "ERROR" "FAILED TO INSTALL PYTHON REQUIREMENTS."
             return 1
         fi
 
-        # Create symlink to the menu.sh script
         log_message "INFO" "CREATING SYSTEM-WIDE COMMAND..."
         local executable_script_path="$ASSISTANT_DIR/$EXECUTABLE_NAME"
         if [ -f "$executable_script_path" ]; then
@@ -2145,10 +2882,10 @@ manage_xui_assistant() {
         read -e -r choice
 
         case $choice in
-            1|2) # Install or Update
+            1|2)
                 _install_xui_assistant
                 ;;
-            3) # Uninstall
+            3)
                 if [ -f "$SYMLINK_PATH" ]; then
                     _uninstall_xui_assistant
                 else
@@ -2156,16 +2893,19 @@ manage_xui_assistant() {
                     echo -e "\n${Y}دستیار از قبل نصب نشده است.${N}"
                 fi
                 ;;
-            4) # Run Management Menu
+            4)
                 if [ -f "$SYMLINK_PATH" ]; then
                     clear
-                    "$SYMLINK_PATH"
+                    (
+                        trap '' INT
+                        "$SYMLINK_PATH"
+                    )
                 else
                     log_message "INFO" "ASSISTANT IS NOT INSTALLED. CANNOT RUN."
                     echo -e "\n${Y}دستیار نصب نیست. لطفاً ابتدا با استفاده از گزینه ۱ آن را نصب کنید.${N}"
                 fi
                 ;;
-            5) # Exit
+            5)
                 return
                 ;;
             *)
@@ -2182,7 +2922,7 @@ manage_tc_script() {
   echo -e "${B_CYAN}--- بهینه سازی سرعت (TC) ---${C_RESET}\n"
   printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "نصب و تست اسکریپت بهینه‌سازی TC"
   printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "حذف اسکریپت بهینه‌سازی TC"
-  printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بازگشت به منوی بهینه‌سازی"
+  printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بازگشت به منوی بهینه سازی"
   echo -e "${B_BLUE}-----------------------------------${C_RESET}"
   printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
   read -e -r choice
@@ -2198,20 +2938,20 @@ tc qdisc del dev $INTERFACE ingress 2>/dev/null
 ip link set dev $INTERFACE mtu 1500 2>/dev/null
 echo 1000 > /sys/class/net/$INTERFACE/tx_queue_len 2>/dev/null
 if tc qdisc add dev $INTERFACE root cake bandwidth 1000mbit rtt 20ms nat dual-dsthost 2>/dev/null; then
-    echo "$(date): CAKE optimization complete" >> /var/log/tc_smart.log
-    echo 'CAKE optimization complete'
+    echo "$(date): CAKE OPTIMIZATION COMPLETE" >> /var/log/tc_smart.log
+    echo 'CAKE OPTIMIZATION COMPLETE'
 elif tc qdisc add dev $INTERFACE root fq_codel limit 10240 flows 1024 target 5ms interval 100ms 2>/dev/null; then
-    echo "$(date): FQ_CoDel optimization complete" >> /var/log/tc_smart.log
-    echo 'FQ_CoDel optimization complete'
+    echo "$(date): FQ_CODEL OPTIMIZATION COMPLETE" >> /var/log/tc_smart.log
+    echo 'FQ_CODEL OPTIMIZATION COMPLETE'
 elif tc qdisc add dev $INTERFACE parent 1: classid 1:1 htb rate 1000mbit ceil 1000mbit 2>/dev/null && \
      tc class add dev $INTERFACE parent 1:1 classid 1:11 htb rate 1000mbit ceil 1000mbit 2>/dev/null && \
      tc qdisc add dev $INTERFACE parent 1:11 netem delay 1ms loss 0.005% duplicate 0.05% reorder 0.5% 2>/dev/null; then
-    echo "$(date): HTB+Netem optimization complete" >> /var/log/tc_smart.log
-    echo 'HTB+Netem optimization complete'
+    echo "$(date): HTB+NETEM OPTIMIZATION COMPLETE" >> /var/log/tc_smart.log
+    echo 'HTB+NETEM OPTIMIZATION COMPLETE'
 else
     tc qdisc add dev $INTERFACE root netem delay 1ms loss 0.005% duplicate 0.05% reorder 0.5% 2>/dev/null
-    echo "$(date): Fallback Netem optimization complete" >> /var/log/tc_smart.log
-    echo 'Fallback Netem optimization complete'
+    echo "$(date): FALLBACK NETEM OPTIMIZATION COMPLETE" >> /var/log/tc_smart.log
+    echo 'FALLBACK NETEM OPTIMIZATION COMPLETE'
 fi
 tc qdisc show dev $INTERFACE | grep -E 'cake|fq_codel|htb|netem'
 echo -e "\033[38;5;208mIRNET\033[0m"
@@ -2249,6 +2989,7 @@ manage_custom_sysctl() {
                 log_message "INFO" "APPLYING CUSTOM SYSCTL SETTINGS..."
                 create_backup "$conf_file"
                 tee "$conf_file" > /dev/null <<'EOF'
+# CUSTOM SYSCTL SETTINGS BY IRNET
 net.core.rmem_max=134217728
 net.core.wmem_max=134217728
 net.core.rmem_default=16777216
@@ -2412,12 +3153,16 @@ run_packet_loss_test() {
     clear
     echo -e "${B_CYAN}--- تست پکت لاست، پینگ و مسیر شبکه (MTR) ---${C_RESET}\n"
     echo -e "\n${C_YELLOW}در حال اجرای تست MTR برای مقصد ${target_ip}... (این عملیات حدود 1 دقیقه طول می‌کشد)${C_RESET}"
+    echo -e "${C_CYAN}برای لغو تست و بازگشت به منو، کلیدهای CTRL+C را فشار دهید.${C_RESET}\n"
     
     local MTR_JSON
-    MTR_JSON=$(mtr -j -c 50 --no-dns "$target_ip")
+    (
+        trap '' INT
+        MTR_JSON=$(mtr -j -c 50 --no-dns "$target_ip")
+    )
 
     if ! echo "$MTR_JSON" | jq . > /dev/null 2>&1; then
-        log_message "ERROR" "PARSING FAILED. MTR DID NOT PRODUCE VALID OUTPUT. PLEASE CHECK YOUR INTERNET CONNECTION."
+        log_message "ERROR" "PARSING FAILED. MTR DID NOT PRODUCE VALID OUTPUT OR WAS CANCELED."
         read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
         return
     fi
@@ -2506,7 +3251,7 @@ advanced_mirror_test() {
             local sources_file="/etc/apt/sources.list.d/ubuntu.sources"
             create_backup "$sources_file"
             tee "$sources_file" > /dev/null <<EOF
-# Generated by Linux Optimizer Script | Mirror: ${mirror_name}
+# GENERATED BY LINUX OPTIMIZER SCRIPT | MIRROR: ${mirror_name}
 Types: deb
 URIs: ${mirror_url}
 Suites: ${codename} ${codename}-updates ${codename}-backports
@@ -2524,7 +3269,7 @@ EOF
             local sources_file="/etc/apt/sources.list"
             create_backup "$sources_file"
             tee "$sources_file" > /dev/null <<EOF
-# Generated by Linux Optimizer Script | Mirror: ${mirror_name}
+# GENERATED BY LINUX OPTIMIZER SCRIPT | MIRROR: ${mirror_name}
 deb ${mirror_url} ${codename} main restricted universe multiverse
 deb ${mirror_url} ${codename}-updates main restricted universe multiverse
 deb ${mirror_url} ${codename}-backports main restricted universe multiverse
@@ -2569,20 +3314,24 @@ EOF
     echo -e "${Y}فاز ۱: تست سرعت ${#mirrors[@]} مخزن...${N}"
     local temp_speed_file="/tmp/mirror_speeds_$$"
     
-    for mirror in "${mirrors[@]}"; do
-        (
-            local speed name
-            speed=$(test_mirror_speed "$mirror")
-            if [[ "$speed" != "0" ]]; then
-                name=$(echo "$mirror" | sed -E 's/https?:\/\///' | sed -E 's/(\.com|\.ir|\.co|\.tech|\.org|\.net|\.ac\.ir|\.cloud).*//' | sed -E 's/(mirrors?|archive|ubuntu|repo)\.//g' | awk '{print toupper(substr($0,1,1))substr($0,2)}')
-                echo "$speed|$mirror|$name" >> "$temp_speed_file"
-                echo -n -e "${G}.${N}"
-            else
-                echo -n -e "${R}x${N}"
-            fi
-        ) &
-    done
-    wait; echo -e "\n\n${G}فاز ۱ تکمیل شد.${N}"
+    (
+        trap '' INT
+        for mirror in "${mirrors[@]}"; do
+            (
+                local speed name
+                speed=$(test_mirror_speed "$mirror")
+                if [[ "$speed" != "0" ]]; then
+                    name=$(echo "$mirror" | sed -E 's/https?:\/\///' | sed -E 's/(\.com|\.ir|\.co|\.tech|\.org|\.net|\.ac\.ir|\.cloud).*//' | sed -E 's/(mirrors?|archive|ubuntu|repo)\.//g' | awk '{print toupper(substr($0,1,1))substr($0,2)}')
+                    echo "$speed|$mirror|$name" >> "$temp_speed_file"
+                    echo -n -e "${G}.${N}"
+                else
+                    echo -n -e "${R}x${N}"
+                fi
+            ) &
+        done
+        wait
+    )
+    echo -e "\n\n${G}فاز ۱ تکمیل شد.${N}"
 
     if [ ! -s "$temp_speed_file" ]; then
         log_message "ERROR" "[X] NO ACTIVE REPOSITORIES FOUND. PLEASE CHECK YOUR INTERNET CONNECTION."; return 1
@@ -2651,14 +3400,18 @@ port_scanner_menu() {
                     log_message "ERROR" "THE IP ADDRESS ENTERED IS NOT VALID."
                 else
                     echo -e "\n${C_YELLOW}لطفا صبر کنید، اسکن در حال انجام است...${C_RESET}"
-                    if [ "$choice" -eq 1 ]; then
-                        log_message "INFO" "RUNNING A FAST SCAN FOR COMMON PORTS ON $target_ip..."
-                        nmap --top-ports 1000 --open "$target_ip"
-                    else
-                        log_message "INFO" "RUNNING A FULL SCAN FOR ALL OPEN PORTS ON $target_ip (THIS MAY TAKE A VERY LONG TIME)..."
-                        nmap -p- --open "$target_ip"
-                    fi
-                    log_message "SUCCESS" "NMAP SCAN COMPLETED."
+                    echo -e "${C_CYAN}برای لغو اسکن و بازگشت به منو، کلیدهای CTRL+C را فشار دهید.${C_RESET}\n"
+                    (
+                        trap '' INT
+                        if [ "$choice" -eq 1 ]; then
+                            log_message "INFO" "RUNNING A FAST SCAN FOR COMMON PORTS ON $target_ip..."
+                            nmap --top-ports 1000 --open "$target_ip"
+                        else
+                            log_message "INFO" "RUNNING A FULL SCAN FOR ALL OPEN PORTS ON $target_ip (THIS MAY TAKE A VERY LONG TIME)..."
+                            nmap -p- --open "$target_ip"
+                        fi
+                    )
+                    log_message "SUCCESS" "NMAP SCAN COMPLETED OR CANCELED."
                 fi
                 ;;
             3) return ;;
@@ -2744,9 +3497,9 @@ manage_ip_health_check() {
         read -e -r choice
 
         case $choice in
-            1) clear; log_message "INFO" "RUNNING TEST 1..."; bash <(curl -Ls IP.Check.Place) -l en -4; break ;;
-            2) clear; log_message "INFO" "RUNNING TEST 2..."; bash <(curl -L -s https://bench.openode.xyz/multi_check.sh); break ;;
-            3) clear; log_message "INFO" "RUNNING TEST 3..."; bash <(curl -L -s https://git.io/JRw8R) -E en -M 4; break ;;
+            1) (trap '' INT; clear; log_message "INFO" "RUNNING TEST 1..."; bash <(curl -Ls IP.Check.Place) -l en -4); break ;;
+            2) (trap '' INT; clear; log_message "INFO" "RUNNING TEST 2..."; bash <(curl -L -s https://bench.openode.xyz/multi_check.sh)); break ;;
+            3) (trap '' INT; clear; log_message "INFO" "RUNNING TEST 3..."; bash <(curl -L -s https://git.io/JRw8R) -E en -M 4); break ;;
             4) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
@@ -2865,10 +3618,14 @@ scan_arvan_ranges() {
             echo
             case "$choice" in
                 [Yy]*)
-                    log_message "INFO" "PINGING ARVAN RANGE: ${range}"
-                    echo -e "\n${C_YELLOW}در حال انجام تست پینگ... (فقط آی‌پی‌های فعال نمایش داده می‌شوند)${N}"
-                    fping -a -g "${range}" 2>/dev/null
-                    log_message "SUCCESS" "PING SCAN FOR ${range} COMPLETED."
+                    (
+                        trap '' INT
+                        log_message "INFO" "PINGING ARVAN RANGE: ${range}"
+                        echo -e "\n${C_YELLOW}در حال انجام تست پینگ... (فقط آی‌پی‌های فعال نمایش داده می‌شوند)${N}"
+                        echo -e "${C_CYAN}برای لغو اسکن این رنج و رفتن به رنج بعدی، CTRL+C را فشار دهید.${N}\n"
+                        fping -a -g "${range}" 2>/dev/null
+                    )
+                    log_message "SUCCESS" "PING SCAN FOR ${range} COMPLETED OR CANCELED."
                     break
                     ;;
                 [Nn]*)
@@ -2956,12 +3713,38 @@ scan_warp_endpoints() {
 }
 # --- SCRIPT MAIN MENUS (UPDATED) ---
 
+manage_advanced_tools() {
+    while true; do
+        clear
+        stty sane
+        echo -e "${B_CYAN}--- ابزارهای پیشرفته و وب ---${C_RESET}\n"
+        echo -e "${C_WHITE}این منو شامل ابزارهای پیشرفته مانند DOCKER، وب سرور CADDY و ابزارهای مرتبط با SSL و GEO-IP است.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "1" "نصب و مدیریت DOCKER"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "2" "مدیریت وب سرور CADDY (با SSL خودکار)"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "3" "مدیریت گواهی SSL با CERTBOT"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "4" "مسدودسازی بر اساس موقعیت جغرافیایی (GEO-IP)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "5" "بازگشت به منوی اصلی"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1) manage_docker ;;
+            2) manage_caddy ;;
+            3) manage_certbot ;;
+            4) manage_geoip_blocking ;;
+            5) return ;;
+            *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
+        esac
+    done
+}
+
 manage_network_optimization() {
     while true; do
         clear
         stty sane
         echo -e "${B_CYAN}--- بهینه سازی شبکه و اتصال ---${C_RESET}\n"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "مدیریت بهینه‌سازهای TCP (BBR, HYBLA, CUBIC)"
+        echo -e "${C_WHITE}در این بخش می‌توانید تنظیمات شبکه، DNS، الگوریتم‌های TCP و مخازن نرم‌افزاری را بهینه سازی کنید.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "مدیریت بهینه سازهای TCP (BBR, HYBLA, CUBIC)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "بهینه ساز SYSCTL اختصاصی"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بهینه ساز QLEEN & MTU اختصاصی (ماندگار)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "رفع مشکل تاریخ واتس‌اپ"
@@ -2990,6 +3773,7 @@ manage_security() {
         clear
         stty sane
         echo -e "${B_CYAN}--- امنیت و دسترسی ---${C_RESET}\n"
+        echo -e "${C_WHITE}مجموعه ابزارهای امنیتی برای مدیریت فایروال، دسترسی‌ها، اسکنرها و محافظت از سرور شما.${C_RESET}\n"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "مدیریت فایروال و پینگ (UFW)"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "مدیریت ورود کاربر ROOT"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "تغییر پورت SSH"
@@ -3000,11 +3784,13 @@ manage_security() {
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "8" "مدیریت ریبوت خودکار سرور"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "9" "فعال/غیرفعال کردن IPV6"
         printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "10" "اسکنر پورت"
-        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "11" "اسکن رنج وارپ پیشرفته"
-        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "12" "اسکن رنج آروان کلود"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "13" "تشخیص سالم بودن آی پی"
-        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "14" "اسکن اندپوینت های WARP"
-        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "15" "بازگشت به منوی اصلی"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "11" "اسکنرهای بدافزار"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "12" "ممیزی امنیتی با LYNIS"
+        printf "  ${C_YELLOW}%2d)${B_GREEN} %s\n" "13" "اسکن رنج وارپ پیشرفته"
+        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "14" "اسکن رنج آروان کلود"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "15" "تشخیص سالم بودن آی پی"
+        printf "  ${C_YELLOW}%2d)${B_YELLOW} %s\n" "16" "اسکن اندپوینت های WARP"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "17" "بازگشت به منوی اصلی"
         echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
         printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
 
@@ -3012,8 +3798,53 @@ manage_security() {
             1) manage_firewall ;; 2) manage_ssh_root ;; 3) manage_ssh_port ;; 4) change_server_password ;;
             5) manage_abuse_defender ;; 6) manage_xui_assistant ;; 7) manage_xray_auto_restart ;; 
             8) manage_reboot_cron ;; 9) manage_ipv6 ;; 10) port_scanner_menu ;;
-            11) manage_advanced_warp_scanner ;; 12) scan_arvan_ranges ;; 13) manage_ip_health_check ;; 
-            14) scan_warp_endpoints ;; 15) return ;;
+            11) manage_malware_scanners ;; 12) manage_lynis_audit ;;
+            13) manage_advanced_warp_scanner ;; 14) scan_arvan_ranges ;; 15) manage_ip_health_check ;; 
+            16) scan_warp_endpoints ;; 17) return ;;
+            *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
+        esac
+    done
+}
+
+manage_monitoring_diagnostics() {
+    while true; do
+        clear
+        stty sane
+        echo -e "${B_CYAN}--- ابزارهای مانیتورینگ و عیب یابی ---${C_RESET}\n"
+        echo -e "${C_WHITE}ابزارهایی برای مشاهده زنده منابع سیستم، ترافیک شبکه و تحلیل فضای دیسک.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "مانیتورینگ پیشرفته منابع (BTOP/HTOP)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "تحلیلگر فضای دیسک (NCDU)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "مشاهده زنده ترافیک شبکه (IFTOP)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "4" "بازگشت به منوی اصلی"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1) manage_system_monitors ;;
+            2) manage_disk_analyzer ;;
+            3) manage_network_traffic ;;
+            4) return ;;
+            *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
+        esac
+    done
+}
+
+manage_system_tools() {
+    while true; do
+        clear
+        stty sane
+        echo -e "${B_CYAN}--- ابزارهای سیستمی و مدیریتی ---${C_RESET}\n"
+        echo -e "${C_WHITE}شامل ابزارهای مدیریتی سیستم مانند مدیریت SWAP و پاکسازی دیسک.${C_RESET}\n"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "1" "مدیریت حافظه SWAP"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "2" "پاکسازی سیستم (آزاد کردن فضا)"
+        printf "  ${C_YELLOW}%2d)${C_WHITE} %s\n" "3" "بازگشت به منوی اصلی"
+        echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+        printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"; read -e -r choice
+
+        case $choice in
+            1) manage_swap ;;
+            2) manage_system_cleanup ;;
+            3) return ;;
             *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; sleep 1 ;;
         esac
     done
@@ -3021,30 +3852,102 @@ manage_security() {
 
 update_and_install_packages() {
     clear
-    log_message "INFO" "--- STARTING UPDATE AND ESSENTIAL PACKAGES INSTALLATION PROCESS ---"
+    log_message "INFO" "--- INTERACTIVE UPDATE AND INSTALLATION PROCESS ---"
     
-    echo -e "${B_YELLOW}مرحله ۱: به‌روزرسانی لیست بسته‌های سیستم عامل...${N}"
-    if ! apt-get update -qq; then
-        log_message "ERROR" "FAILED TO UPDATE PACKAGE LISTS. PLEASE CHECK YOUR INTERNET CONNECTION."
-        read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
-        return 1
-    fi
-    log_message "SUCCESS" "PACKAGE LISTS UPDATED SUCCESSFULLY."
-    
-    echo -e "\n${B_YELLOW}مرحله ۲: ارتقاء بسته‌های نصب شده (ممکن است کمی زمان‌بر باشد)...${N}"
-    if ! DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; then
-        log_message "WARN" "UPGRADE FAILED FOR SOME PACKAGES. SCRIPT WILL CONTINUE."
-    fi
-    log_message "SUCCESS" "SYSTEM PACKAGES UPGRADED."
-    
-    echo -e "\n${B_YELLOW}مرحله ۳: نصب پیش‌نیازهای اسکریپت...${N}"
-    if ! install_dependencies; then
-        log_message "ERROR" "FAILED TO INSTALL SCRIPT PREREQUISITES."
+    echo -e "${B_CYAN}--- آپدیت و نصب بسته‌های لازم (با تایید مرحله به مرحله) ---${C_RESET}\n"
+
+    # --- STEP 1: APT UPDATE ---
+    local choice
+    printf "%b" "${C_YELLOW}مرحله ۱: آیا مایل به به‌روزرسانی لیست بسته‌های سیستم عامل (APT UPDATE) هستید؟ (y/n): ${C_RESET}"
+    read -e -r choice
+    if [[ "$choice" =~ ^[yY]$ ]]; then
+        log_message "INFO" "UPDATING PACKAGE LISTS..."
+        if ! apt-get update -qq; then
+            log_message "ERROR" "FAILED TO UPDATE PACKAGE LISTS."
+        else
+            log_message "SUCCESS" "PACKAGE LISTS UPDATED SUCCESSFULLY."
+        fi
     else
-        log_message "SUCCESS" "ALL SCRIPT PREREQUISITES HAVE BEEN INSTALLED AND VERIFIED."
+        log_message "INFO" "SKIPPED: PACKAGE LIST UPDATE."
     fi
+    echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+
+    # --- STEP 2: APT UPGRADE ---
+    printf "%b" "${C_YELLOW}مرحله ۲: آیا مایل به ارتقاء بسته‌های نصب شده (APT UPGRADE) هستید؟ (ممکن است زمان‌بر باشد) (y/n): ${C_RESET}"
+    read -e -r choice
+    if [[ "$choice" =~ ^[yY]$ ]]; then
+        log_message "INFO" "UPGRADING SYSTEM PACKAGES..."
+        if ! DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; then
+            log_message "WARN" "UPGRADE FAILED FOR SOME PACKAGES. SCRIPT WILL CONTINUE."
+        else
+            log_message "SUCCESS" "SYSTEM PACKAGES UPGRADED."
+        fi
+    else
+        log_message "INFO" "SKIPPED: SYSTEM UPGRADE."
+    fi
+    echo -e "${B_BLUE}----------------------------------------------------${C_RESET}"
+
+    # --- STEP 3: GROUPED DEPENDENCIES INSTALLATION ---
+    echo -e "${B_CYAN}مرحله ۳: نصب پیش‌نیازها به صورت گروهی${C_RESET}"
     
-    echo -e "\n${B_GREEN}✅ فرآیند آپدیت و نصب بسته‌ها با موفقیت به پایان رسید.${N}"
+    _install_group_if_confirmed() {
+        local group_title="$1"
+        shift
+        local deps_to_check=("$@")
+        local missing_deps=()
+
+        for dep in "${deps_to_check[@]}"; do
+            local cmd_name="$dep"
+            [[ "$dep" == "dnsutils" ]] && cmd_name="dig"
+            [[ "$dep" == "net-tools" ]] && cmd_name="ifconfig"
+            [[ "$dep" == "mtr-tiny" ]] && cmd_name="mtr"
+            [[ "$dep" == "netcat-openbsd" ]] && cmd_name="nc"
+            [[ "$dep" == "uuid-runtime" ]] && cmd_name="uuidgen"
+            [[ "$dep" == "iptables-persistent" ]] && cmd_name="netfilter-persistent"
+            [[ "$dep" == "xtables-addons-common" ]] && cmd_name="xtables-addons-info"
+
+            if ! command -v "$cmd_name" &>/dev/null; then
+                 if [[ "$dep" == "netcat-openbsd" ]] && (command -v "ncat" >/dev/null || command -v "netcat" >/dev/null); then
+                    continue
+                fi
+                missing_deps+=("$dep")
+            fi
+        done
+
+        if [ ${#missing_deps[@]} -gt 0 ]; then
+            echo -e "\n${C_WHITE}گروه '${group_title}' نیاز به نصب بسته‌های زیر دارد:${N} ${C_CYAN}${missing_deps[*]}${N}"
+            printf "%b" "${C_YELLOW}آیا این بسته‌ها نصب شوند؟ (y/n): ${C_RESET}"
+            read -e -r install_choice
+            if [[ "$install_choice" =~ ^[yY]$ ]]; then
+                log_message "INFO" "INSTALLING GROUP: ${group_title}"
+                if ! DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing_deps[@]}"; then
+                    log_message "ERROR" "FAILED TO INSTALL SOME DEPENDENCIES IN GROUP: ${group_title}"
+                else
+                    log_message "SUCCESS" "GROUP '${group_title}' INSTALLED SUCCESSFULLY."
+                fi
+            else
+                log_message "INFO" "SKIPPED GROUP: ${group_title}"
+            fi
+        else
+            echo -e "\n${G}بسته‌های گروه '${group_title}' از قبل نصب هستند.${N}"
+        fi
+    }
+
+    local core_deps=("curl" "wget" "net-tools" "dnsutils" "bc" "lsb-release" "uuid-runtime" "unzip" "git" "gnupg")
+    local socat_dep=("socat")
+    local security_deps=("fail2ban" "chkrootkit" "rkhunter" "lynis" "iptables-persistent" "xtables-addons-common" "geoip-database")
+    local monitoring_deps=("htop" "btop" "ncdu" "iftop")
+    local web_deps=("certbot")
+    local advanced_deps=("mtr-tiny" "iperf3" "jq" "netcat-openbsd" "nmap" "fping" "python3" "python3-pip")
+
+    _install_group_if_confirmed "ابزارهای اصلی و ضروری" "${core_deps[@]}"
+    _install_group_if_confirmed "ابزار Socat (برای ارتباطات شبکه)" "${socat_dep[@]}"
+    _install_group_if_confirmed "ابزارهای امنیتی و اسکنرها" "${security_deps[@]}"
+    _install_group_if_confirmed "ابزارهای مانیتورینگ" "${monitoring_deps[@]}"
+    _install_group_if_confirmed "ابزارهای وب و SSL" "${web_deps[@]}"
+    _install_group_if_confirmed "ابزارهای پیشرفته شبکه" "${advanced_deps[@]}"
+
+    echo -e "\n${B_GREEN}✅ فرآیند بررسی و نصب پیش‌نیازها به پایان رسید.${N}"
     read -n 1 -s -r -p $'\n'"${R}PRESS ANY KEY TO CONTINUE...${N}"
 }
 
@@ -3060,10 +3963,13 @@ main() {
       clear; show_banner; show_enhanced_system_status
       printf "   ${C_YELLOW}%2d) ${B_CYAN}%s\n" "1" "بهینه سازی شبکه و اتصال"
       printf "   ${C_YELLOW}%2d) ${B_CYAN}%s\n" "2" "امنیت و دسترسی"
-      printf "   ${C_YELLOW}%2d) ${C_WHITE}%s\n" "3" "آپدیت و نصب پکیج های لازم"
-      printf "   ${C_YELLOW}%2d)${B_GREEN} %s\n" "4" "نصب / به‌روزرسانی پنل TX-UI"
-      printf "   ${C_YELLOW}%2d)${B_GREEN} %s\n" "5" "نصب / به‌روزرسانی پنل 3X-UI"
-      printf "\n   ${C_YELLOW}%2d) ${C_RED}%s\n" "6" "خروج (EXIT)"
+      printf "   ${C_YELLOW}%2d) ${B_CYAN}%s\n" "3" "ابزارهای مانیتورینگ و عیب یابی"
+      printf "   ${C_YELLOW}%2d) ${B_CYAN}%s\n" "4" "ابزارهای سیستمی و مدیریتی"
+      printf "   ${C_YELLOW}%2d) ${B_CYAN}%s\n" "5" "ابزارهای پیشرفته و وب"
+      printf "   ${C_YELLOW}%2d) ${C_WHITE}%s\n" "6" "آپدیت و نصب پکیج های لازم"
+      printf "   ${C_YELLOW}%2d)${B_GREEN} %s\n" "7" "نصب / به‌روزرسانی پنل TX-UI"
+      printf "   ${C_YELLOW}%2d)${B_GREEN} %s\n" "8" "نصب / به‌روزرسانی پنل 3X-UI"
+      printf "\n   ${C_YELLOW}%2d) ${C_RED}%s\n" "9" "خروج (EXIT)"
       echo -e "${B_BLUE}------------------------------------------------------------${C_RESET}"
       printf "%b" "${B_MAGENTA}لطفاً یک گزینه را انتخاب کنید: ${C_RESET}"
       read -e -r main_choice
@@ -3071,10 +3977,13 @@ main() {
       case $main_choice in
         1) manage_network_optimization ;;
         2) manage_security ;;
-        3) update_and_install_packages ;;
-        4) manage_txui_panel ;;
-        5) manage_3xui_panel ;;
-        6) clear; log_message "INFO" "EXITING SCRIPT."; echo -e "\n${B_CYAN}خدا نگهدار!${C_RESET}\n"; stty sane; exit 0 ;;
+        3) manage_monitoring_diagnostics ;;
+        4) manage_system_tools ;;
+        5) manage_advanced_tools ;;
+        6) update_and_install_packages ;;
+        7) manage_txui_panel ;;
+        8) manage_3xui_panel ;;
+        9) clear; log_message "INFO" "EXITING SCRIPT."; echo -e "\n${B_CYAN}خدا نگهدار!${C_RESET}\n"; stty sane; exit 0 ;;
         *) echo -e "\n${C_RED}گزینه نامعتبر است!${C_RESET}"; read -n 1 -s -r -p "" ;;
       esac
     done
